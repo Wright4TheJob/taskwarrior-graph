@@ -13,15 +13,16 @@ use iced::{
 };
 use iced_core::text::Shaping;
 use std::collections::HashMap;
+use std::str::from_utf8;
 use std::{error::Error, process::Command};
 
 #[derive(Default)]
 pub struct TwGraph {
-    tasks: HashMap<usize, Task>,
+    tasks: HashMap<String, Task>,
     canvas_mouse_position: Point<f32>,
     user_status: UserStatus,
     line_start_point: Point<f32>,
-    line_start_node_id: Option<usize>,
+    line_start_node_id: Option<String>,
     canvas_size: Size,
     project_filter: String,
     tag_filter: String,
@@ -36,11 +37,12 @@ pub struct Line {
 
 #[derive(Default, Debug, Clone)]
 pub struct Task {
+    uuid: String,
     id: usize,
     location: Point<f32>,
     size: Size,
     label: String,
-    dependancies: Vec<usize>,
+    dependancies: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -60,9 +62,11 @@ enum UserStatus {
 impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
+        app.tasks = tw_tasks();
         app.tasks.insert(
-            0,
+            "A".to_string(),
             Task {
+                uuid: "".to_string(),
                 id: 0,
                 label: "A".to_string(),
                 location: Point { x: 90., y: 30. },
@@ -74,8 +78,9 @@ impl TwGraph {
             },
         );
         app.tasks.insert(
-            1,
+            "B".to_string(),
             Task {
+                uuid: "".to_string(),
                 id: 1,
                 label: "B".to_string(),
                 location: Point { x: 25., y: 50. },
@@ -83,12 +88,13 @@ impl TwGraph {
                     width: 30.,
                     height: 15.,
                 },
-                dependancies: vec![0],
+                dependancies: vec!["A".to_string()],
             },
         );
         app.tasks.insert(
-            2,
+            "C".to_string(),
             Task {
+                uuid: "".to_string(),
                 id: 2,
                 label: "C".to_string(),
                 location: Point { x: 50., y: 150. },
@@ -190,28 +196,28 @@ impl TwGraph {
                 // If not -> Consider it a static click and mark the box as selected
                 let mut clicked_boxes = Vec::new();
                 for (_, node) in self.tasks.clone() {
-                    if self.is_within(&node, &self.canvas_mouse_position) {
-                        clicked_boxes.push(node.id);
+                    if is_within(&node, &self.canvas_mouse_position) {
+                        clicked_boxes.push(node.uuid);
                     }
                 }
                 if !clicked_boxes.is_empty() {
-                    self.line_start_node_id = Some(clicked_boxes[0]);
+                    self.line_start_node_id = Some(clicked_boxes[0].clone());
                     self.line_start_point = self.canvas_mouse_position;
                     self.user_status = UserStatus::Dragging;
                 }
             }
             Message::MouseReleased => {
                 let mut released_boxes = Vec::new();
-                if let Some(line_start_node_id) = self.line_start_node_id {
+                if let Some(line_start_node_id) = self.line_start_node_id.clone() {
+                    let start_node = line_start_node_id.clone();
                     for (_, node) in self.tasks.clone() {
-                        if self.is_within(&node, &self.canvas_mouse_position) {
+                        if is_within(&node, &self.canvas_mouse_position) {
                             released_boxes.push(node.id);
-                            let mut modified_node =
-                                self.tasks.get(&line_start_node_id).unwrap().clone();
-                            if !modified_node.dependancies.contains(&node.id) {
-                                modified_node.dependancies.push(node.id);
+                            let mut modified_node = self.tasks.get(&start_node).unwrap().clone();
+                            if !modified_node.dependancies.contains(&node.uuid) {
+                                modified_node.dependancies.push(node.uuid);
                             };
-                            self.tasks.insert(line_start_node_id, modified_node);
+                            self.tasks.insert(start_node.clone(), modified_node);
                         }
                     }
                 }
@@ -223,49 +229,77 @@ impl TwGraph {
             }
         }
     }
-    fn is_within(&self, node: &Task, point: &Point<f32>) -> bool {
-        let min_x = point.x > node.location.x - node.size.width / 2.;
-        let max_x = point.x < node.location.x + node.size.width / 2.;
-        min_x && max_x
-    }
+}
+fn is_within(node: &Task, point: &Point<f32>) -> bool {
+    let min_x = point.x > node.location.x - node.size.width / 2.;
+    let max_x = point.x < node.location.x + node.size.width / 2.;
+    min_x && max_x
+}
+fn tw_tasks() -> HashMap<String, Task> {
+    let mut tasks = HashMap::new();
+    // let mut task_command = "task".to_string();
+    // if !self.project_filter.is_empty() {
+    //     task_command.push_str(" ");
+    //     task_command.push_str(&self.project_filter);
+    // }
+    // if !self.tag_filter.is_empty() {
+    //     let tags = self.tag_filter.split(" ");
+    //     for tag in tags {
+    //         task_command.push_str(" +");
+    //         task_command.push_str(tag);
+    //     }
+    // }
 
-    fn tw_tasks(&self) -> HashMap<usize, Task> {
-        let mut tasks = HashMap::new();
-        let mut task_command = "task".to_string();
-        if !self.project_filter.is_empty() {
-            task_command.push_str(" ");
-            task_command.push_str(&self.project_filter);
-        }
-        if !self.tag_filter.is_empty() {
-            let tags = self.tag_filter.split(" ");
-            for tag in tags {
-                task_command.push_str(" +");
-                task_command.push_str(tag);
-            }
-        }
-        let output = Command::new("task")
-            .arg("rc.hooks=off")
-            .arg("show")
-            .arg("rc.defaultwidth=0")
-            .arg(format!("report.next"))
-            .output()
-            .unwrap();
-        let data = String::from_utf8_lossy(&output.stdout);
-        for line in data.lines() {
-            let this_task = Task {
-                id: 0,
-                size: Size {
-                    height: 10.,
-                    width: 50.,
-                },
-                location: Point { x: 0.0, y: 0.0 },
-                label: "This is the task".to_string(),
-                dependancies: Vec::new(),
-            };
-            tasks.insert(this_task.id, this_task);
-        }
-        return tasks;
+    let uuid_command = Command::new("task")
+        .arg("rc.hooks=off")
+        .arg("rc.report.foo.columns:uuid.short")
+        .arg("rc.report.foo.sort=uuid")
+        .arg("foo")
+        .output()
+        .unwrap();
+    let uuids_string = String::from_utf8_lossy(&uuid_command.stdout);
+    let mut uuids: Vec<String> = uuids_string.lines().map(|l| l.to_string()).collect();
+    uuids.drain(0..3);
+    let final_length = uuids.len().saturating_sub(2);
+    uuids.truncate(final_length);
+
+    let description_command = Command::new("task")
+        .arg("rc.hooks=off")
+        .arg("rc.report.foo.columns:description")
+        .arg("rc.report.foo.sort=uuid")
+        .arg("foo")
+        .output()
+        .unwrap();
+    let descriptions_string = String::from_utf8_lossy(&description_command.stdout);
+    let mut descriptions: Vec<String> =
+        descriptions_string.lines().map(|l| l.to_string()).collect();
+    uuids.drain(0..3);
+    let final_length = descriptions.len().saturating_sub(2);
+    descriptions.truncate(final_length);
+
+    // let output = Command::new("task")
+    //     .arg("rc.hooks=off")
+    //     .arg("rc.report.foo.columns:uuid.short,id,description,depends,status,project")
+    //     .arg("rc.report.foo.sort=uuid")
+    //     .arg("foo")
+    //     .output()
+    //     .unwrap();
+    // let data = String::from_utf8_lossy(&output.stdout);
+    for i in 0..uuids.len() {
+        let this_task = Task {
+            uuid: uuids[i].clone(),
+            id: 0,
+            size: Size {
+                height: 10.,
+                width: 50.,
+            },
+            location: Point { x: 0.0, y: 0.0 },
+            label: descriptions[i].clone(),
+            dependancies: Vec::new(),
+        };
+        tasks.insert(this_task.uuid.clone(), this_task);
     }
+    return tasks;
 }
 
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
