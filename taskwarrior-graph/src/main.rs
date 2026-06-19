@@ -2,7 +2,7 @@ use iced::Size;
 use iced::mouse;
 use iced::widget::canvas;
 use iced::widget::canvas::{Text, stroke::Stroke};
-use iced::widget::{button, checkbox, column, row, text, text_input};
+use iced::widget::{button, column, row, text, text_input};
 use iced::window::Event::Resized;
 use iced::{Color, Element, Rectangle, Renderer, Theme, application};
 use iced::{
@@ -13,20 +13,18 @@ use iced::{
 };
 use iced_core::text::Shaping;
 use std::collections::HashMap;
-use std::str::from_utf8;
-use std::{error::Error, process::Command};
+use std::process::Command;
 
 #[derive(Default)]
 pub struct TwGraph {
-    tasks: HashMap<String, Task>,
+    tasks: HashMap<usize, Task>,
     canvas_mouse_position: Point<f32>,
     user_status: UserStatus,
     line_start_point: Point<f32>,
-    line_start_node_id: Option<String>,
+    line_start_node_id: Option<usize>,
     canvas_size: Size,
     project_filter: String,
     tag_filter: String,
-    only_show_active: bool,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -42,7 +40,8 @@ pub struct Task {
     location: Point<f32>,
     size: Size,
     label: String,
-    dependancies: Vec<String>,
+    dependancies: Vec<usize>,
+    project: String,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -63,48 +62,6 @@ impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
         app.tasks = tw_tasks();
-        app.tasks.insert(
-            "A".to_string(),
-            Task {
-                uuid: "".to_string(),
-                id: 0,
-                label: "A".to_string(),
-                location: Point { x: 90., y: 30. },
-                size: Size {
-                    width: 30.,
-                    height: 15.,
-                },
-                dependancies: Vec::new(),
-            },
-        );
-        app.tasks.insert(
-            "B".to_string(),
-            Task {
-                uuid: "".to_string(),
-                id: 1,
-                label: "B".to_string(),
-                location: Point { x: 25., y: 50. },
-                size: Size {
-                    width: 30.,
-                    height: 15.,
-                },
-                dependancies: vec!["A".to_string()],
-            },
-        );
-        app.tasks.insert(
-            "C".to_string(),
-            Task {
-                uuid: "".to_string(),
-                id: 2,
-                label: "C".to_string(),
-                location: Point { x: 50., y: 150. },
-                size: Size {
-                    width: 30.,
-                    height: 15.,
-                },
-                dependancies: vec![],
-            },
-        );
         app
     }
 
@@ -174,8 +131,8 @@ impl TwGraph {
                     text("Tags"),
                     text_input("Tag filters", self.tag_filter.as_str())
                 ),
-                text("Show only active"),
-                checkbox(self.only_show_active),
+                // text("Show only active"),
+                // checkbox(self.only_show_active),
                 button("View Commands"),
                 button("Save to TaskWarrior"),
             ),
@@ -197,7 +154,7 @@ impl TwGraph {
                 let mut clicked_boxes = Vec::new();
                 for (_, node) in self.tasks.clone() {
                     if is_within(&node, &self.canvas_mouse_position) {
-                        clicked_boxes.push(node.uuid);
+                        clicked_boxes.push(node.id);
                     }
                 }
                 if !clicked_boxes.is_empty() {
@@ -214,8 +171,8 @@ impl TwGraph {
                         if is_within(&node, &self.canvas_mouse_position) {
                             released_boxes.push(node.id);
                             let mut modified_node = self.tasks.get(&start_node).unwrap().clone();
-                            if !modified_node.dependancies.contains(&node.uuid) {
-                                modified_node.dependancies.push(node.uuid);
+                            if !modified_node.dependancies.contains(&node.id) {
+                                modified_node.dependancies.push(node.id);
                             };
                             self.tasks.insert(start_node.clone(), modified_node);
                         }
@@ -235,7 +192,7 @@ fn is_within(node: &Task, point: &Point<f32>) -> bool {
     let max_x = point.x < node.location.x + node.size.width / 2.;
     min_x && max_x
 }
-fn tw_tasks() -> HashMap<String, Task> {
+fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let mut task_command = "task".to_string();
     // if !self.project_filter.is_empty() {
@@ -250,33 +207,14 @@ fn tw_tasks() -> HashMap<String, Task> {
     //     }
     // }
 
-    let uuid_command = Command::new("task")
-        .arg("rc.hooks=off")
-        .arg("rc.report.foo.columns:uuid.short")
-        .arg("rc.report.foo.sort=uuid")
-        .arg("foo")
-        .output()
-        .unwrap();
-    let uuids_string = String::from_utf8_lossy(&uuid_command.stdout);
-    let mut uuids: Vec<String> = uuids_string.lines().map(|l| l.to_string()).collect();
-    uuids.drain(0..3);
-    let final_length = uuids.len().saturating_sub(2);
-    uuids.truncate(final_length);
-
-    let description_command = Command::new("task")
-        .arg("rc.hooks=off")
-        .arg("rc.report.foo.columns:description")
-        .arg("rc.report.foo.sort=uuid")
-        .arg("foo")
-        .output()
-        .unwrap();
-    let descriptions_string = String::from_utf8_lossy(&description_command.stdout);
-    let mut descriptions: Vec<String> =
-        descriptions_string.lines().map(|l| l.to_string()).collect();
-    uuids.drain(0..3);
-    let final_length = descriptions.len().saturating_sub(2);
-    descriptions.truncate(final_length);
-
+    let uuids = query_tw_for_column(&"uuid.short");
+    let descriptions = query_tw_for_column(&"description");
+    let depends = query_tw_for_column(&"depends");
+    let depends: Vec<Vec<usize>> = depends.iter().map(|s| parse_dep_string(s)).collect();
+    // let statuses = query_tw_for_column(&"status");
+    let projects = query_tw_for_column(&"project");
+    let ids_strings = query_tw_for_column(&"id");
+    let ids: Vec<usize> = ids_strings.iter().map(|s| parse_id_string(s)).collect();
     // let output = Command::new("task")
     //     .arg("rc.hooks=off")
     //     .arg("rc.report.foo.columns:uuid.short,id,description,depends,status,project")
@@ -288,20 +226,73 @@ fn tw_tasks() -> HashMap<String, Task> {
     for i in 0..uuids.len() {
         let this_task = Task {
             uuid: uuids[i].clone(),
-            id: 0,
+            id: ids[i],
             size: Size {
-                height: 10.,
-                width: 50.,
+                height: 20.,
+                width: (5 * descriptions[i].len()) as f32,
             },
-            location: Point { x: 0.0, y: 0.0 },
+            location: Point {
+                x: (10 * i) as f32,
+                y: (30 * i) as f32,
+            },
             label: descriptions[i].clone(),
-            dependancies: Vec::new(),
+            dependancies: depends[i].clone(),
+            project: projects[i].clone(),
         };
-        tasks.insert(this_task.uuid.clone(), this_task);
+        tasks.insert(this_task.id, this_task);
     }
     return tasks;
 }
 
+fn query_tw_for_column(column: &str) -> Vec<String> {
+    let command = Command::new("task")
+        .arg("rc.hooks=off")
+        .arg(format!("rc.report.foo.columns:uuid,{}", column))
+        .arg("rc.report.foo.sort=uuid")
+        .arg("rc.report.foo.filter=status:Pending")
+        .arg("foo")
+        .output()
+        .unwrap();
+    let interim_string = String::from_utf8_lossy(&command.stdout);
+    let mut items: Vec<String> = interim_string.lines().map(|l| l.to_string()).collect();
+    items.drain(0..3);
+    let final_length = items.len().saturating_sub(2);
+    items.truncate(final_length);
+    if column != "uuid" {
+        for item in items.iter_mut() {
+            // Strip off UUID
+            *item = item[36..].to_string();
+            if item != "" {
+                // Strip off leading space
+                *item = item[1..].to_string();
+            }
+        }
+    }
+    items
+}
+fn parse_id_string(id_string: &str) -> usize {
+    // match id_string {
+    // "-" => None,
+    // _ => id_string.parse().ok(),
+    // }
+    id_string.parse().unwrap_or(0)
+}
+fn parse_dep_string(dep_string: &str) -> Vec<usize> {
+    let deps_strings: Vec<String> = dep_string
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+
+    let mut deps = Vec::new();
+    for dep in deps_strings {
+        match dep.parse::<usize>() {
+            Ok(id) => deps.push(id),
+            Err(_) => {}
+        }
+    }
+
+    deps
+}
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
 #[derive(Debug, Clone, Default)]
 struct MyCanvas {
