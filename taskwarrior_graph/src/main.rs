@@ -14,6 +14,7 @@ use iced::{
 };
 use iced_core::text::Shaping;
 use std::collections::HashMap;
+use taskwarrior_graph::gv::output_exec_from_test;
 use taskwarrior_graph::*;
 
 #[derive(Default)]
@@ -52,6 +53,7 @@ impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
         app.tasks = tw_tasks();
+        output_exec_from_test();
         app
     }
 
@@ -143,7 +145,7 @@ impl TwGraph {
                 // If not -> Consider it a static click and mark the box as selected
                 let mut clicked_boxes = Vec::new();
                 for (_, node) in self.tasks.clone() {
-                    if is_within(&node, &self.canvas_mouse_position) {
+                    if is_within_rect(&node, &self.canvas_mouse_position) {
                         clicked_boxes.push(node.id);
                     }
                 }
@@ -158,7 +160,7 @@ impl TwGraph {
                 if let Some(line_start_node_id) = self.line_start_node_id.clone() {
                     let start_node = line_start_node_id.clone();
                     for (_, node) in self.tasks.clone() {
-                        if is_within(&node, &self.canvas_mouse_position) {
+                        if is_within_rect(&node, &self.canvas_mouse_position) {
                             released_boxes.push(node.id);
                             let mut modified_node = self.tasks.get(&start_node).unwrap().clone();
                             if !modified_node.dependancies.contains(&node.id) {
@@ -176,11 +178,6 @@ impl TwGraph {
             }
         }
     }
-}
-fn is_within(node: &Task, point: &Point<f32>) -> bool {
-    let min_x = point.x > node.location.x - node.size.width / 2.;
-    let max_x = point.x < node.location.x + node.size.width / 2.;
-    min_x && max_x
 }
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
 #[derive(Debug, Clone, Default)]

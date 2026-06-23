@@ -7,3 +7,6 @@ edition = "2024"
 
 iced= { version = "0.14", features = ["canvas"] }
 iced_core = "0.14"
+graphviz-rust = "0.9.8"
+dot-generator = "0.2.0"
+dot-structures = "0.1.2"

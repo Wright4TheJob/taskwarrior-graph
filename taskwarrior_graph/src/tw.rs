@@ -31,6 +31,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 height: 20.,
                 width: (5 * descriptions[i].len()) as f32,
             },
+            // Location assigned here is placeholder, nodes will be positioned later
             location: Point {
                 x: (10 * i) as f32,
                 y: (30 * i) as f32,
