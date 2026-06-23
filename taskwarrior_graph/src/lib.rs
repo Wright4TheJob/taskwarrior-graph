@@ -9,9 +9,6 @@ pub fn is_within_rect(node: &Task, point: &Point<f32>) -> bool {
     min_x && max_x
 }
 
-fn slope(point1: &Point<f32>, point2: &Point<f32>) -> f32 {
-    (point2.y - point1.y) / (point2.x - point1.x)
-}
 fn line_length(point1: &Point<f32>, point2: &Point<f32>) -> f32 {
     ((point2.x - point1.x).powi(2) + (point2.y - point1.y).powi(2)).sqrt()
 }
@@ -71,7 +68,7 @@ fn simple_distance_to_line() {
     assert_eq!(normal_dist_to_line(&test_point, &p1, &p2), distance_theory)
 }
 
-fn dist_to_line_seg(point: &Point<f32>, start: &Point<f32>, end: &Point<f32>) -> f32 {
+pub fn dist_to_line_seg(point: &Point<f32>, start: &Point<f32>, end: &Point<f32>) -> f32 {
     let lerp = lerp_inv(point, start, end);
     if lerp < 0. {
         line_length(point, start)

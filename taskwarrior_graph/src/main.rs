@@ -144,15 +144,28 @@ impl TwGraph {
                 // If so -> Start a link line
                 // If not -> Consider it a static click and mark the box as selected
                 let mut clicked_boxes = Vec::new();
+                let mut lines = Vec::new();
                 for (_, node) in self.tasks.clone() {
                     if is_within_rect(&node, &self.canvas_mouse_position) {
                         clicked_boxes.push(node.id);
+                    }
+                    for dep in node.dependancies {
+                        lines.push((node.id, dep));
                     }
                 }
                 if !clicked_boxes.is_empty() {
                     self.line_start_node_id = Some(clicked_boxes[0].clone());
                     self.line_start_point = self.canvas_mouse_position;
                     self.user_status = UserStatus::Dragging;
+                }
+
+                let mut clicked_lines = Vec::new();
+                for (end_id, start_id) in lines {
+                    let start = self.tasks.get(&start_id).expect("Node not found").location;
+                    let end = self.tasks.get(&end_id).expect("Node not found").location;
+                    if dist_to_line_seg(&self.canvas_mouse_position, &start, &end) <= 4. {
+                        clicked_lines.push((end_id, start_id));
+                    }
                 }
             }
             Message::MouseReleased => {
