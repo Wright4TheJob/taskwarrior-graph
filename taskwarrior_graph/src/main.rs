@@ -97,10 +97,13 @@ impl TwGraph {
                 width: node.size.width,
                 height: node.size.height,
             });
-            labels.push(Label {
-                text: node.label,
-                location: node.location,
-            });
+            labels.push((
+                Label {
+                    text: node.label,
+                    location: node.location,
+                },
+                node.size.width,
+            ));
             for line in node.dependancies {
                 let start = node.location;
                 let end = self.tasks.get(&line).unwrap().location;
@@ -198,7 +201,7 @@ impl TwGraph {
 #[derive(Debug, Clone, Default)]
 struct MyCanvas {
     rectangles: Vec<Rectangle>,
-    labels: Vec<Label>,
+    labels: Vec<(Label, f32)>,
     lines: Vec<Line>,
     active_line: Option<Line>,
     size: Size<f32>,
@@ -242,11 +245,11 @@ impl<Message> canvas::Program<Message> for MyCanvas {
         }
 
         // Filled text for each node
-        for t in &self.labels {
+        for (t, w) in &self.labels {
             frame.fill_text(Text {
                 content: t.text.clone(),
                 position: t.location,
-                max_width: 60.0,
+                max_width: w.clone(),
                 color: Color::BLACK,
                 size: iced::Pixels(12.0),
                 font: iced::Font::default(),
