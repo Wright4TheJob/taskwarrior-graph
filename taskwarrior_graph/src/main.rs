@@ -14,7 +14,7 @@ use iced::{
 };
 use iced_core::text::Shaping;
 use std::collections::HashMap;
-use taskwarrior_graph::gv::output_exec_from_test;
+use taskwarrior_graph::gv::position;
 use taskwarrior_graph::*;
 
 #[derive(Default)]
@@ -52,8 +52,10 @@ enum UserStatus {
 impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
-        app.tasks = tw_tasks();
-        output_exec_from_test();
+        // app.tasks = tw_tasks();
+        app.tasks = position(tw_tasks());
+        // println!("{:#?}", app.tasks.clone());
+        // output_exec_from_test();
         app
     }
 
