@@ -20,6 +20,7 @@ use taskwarrior_graph::*;
 #[derive(Default)]
 pub struct TwGraph {
     tasks: HashMap<usize, Task>,
+    filtered_tasks: HashMap<usize, Task>,
     canvas_mouse_position: Point<f32>,
     user_status: UserStatus,
     line_start_point: Point<f32>,
@@ -54,6 +55,7 @@ impl TwGraph {
         let mut app = TwGraph::default();
         // app.tasks = tw_tasks();
         app.tasks = position(tw_tasks());
+        app.filter_tasks();
         // println!("{:#?}", app.tasks.clone());
         // output_exec_from_test();
         app
@@ -89,8 +91,7 @@ impl TwGraph {
         let mut outlines = Vec::new();
         let mut labels = Vec::new();
         let mut lines = Vec::new();
-
-        for (_, node) in self.tasks.clone() {
+        for (_, node) in self.filtered_tasks.clone() {
             outlines.push(Rectangle {
                 x: node.location.x,
                 y: node.location.y,
@@ -122,7 +123,11 @@ impl TwGraph {
             row!(
                 column!(
                     text("Project"),
-                    text_input("Project filters", self.project_filter.as_str())
+                    text_input::<Message, Theme, Renderer>(
+                        "Project filters",
+                        self.project_filter.as_str()
+                    )
+                    .on_input(Message::ProjectFilterChanged)
                 ),
                 column!(
                     text("Tags"),
@@ -140,6 +145,10 @@ impl TwGraph {
 
     fn update(&mut self, message: Message) {
         match message {
+            Message::ProjectFilterChanged(filter) => {
+                self.project_filter = filter;
+                self.filter_tasks();
+            }
             Message::MouseMoved(position) => {
                 self.canvas_mouse_position = offset_point(position, Point::new(0.0, 40.0));
             }
@@ -196,6 +205,14 @@ impl TwGraph {
             }
         }
     }
+
+    pub fn filter_tasks(&mut self) {
+        let mut tasks = self.tasks.clone();
+        tasks.retain(|_, t| t.project_contains(&self.project_filter));
+        // filter by tags next
+        let positioned_nodes = position(tasks);
+        self.filtered_tasks = positioned_nodes;
+    }
 }
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
 #[derive(Debug, Clone, Default)]
@@ -212,6 +229,7 @@ enum Message {
     MouseClicked,
     MouseReleased,
     WindowResized(Size<f32>),
+    ProjectFilterChanged(String),
 }
 
 // Then, we implement the `Program` trait

@@ -6,12 +6,6 @@ use regex::Regex;
 use std::collections::HashMap;
 
 use crate::tw::Task;
-// struct EdgeGV {
-//     start_id: usize,
-//     end_id: usize,
-//     start_point: Point,
-//     end_point: Point,
-// }
 
 pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
     let mut nodes = tasks.clone();
@@ -41,8 +35,8 @@ pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
                 location: point,
                 size: s,
                 label: label.to_string(),
-                dependancies: vec![],
-                project: String::new(),
+                dependancies: nodes.get(&i).unwrap().dependancies.clone(),
+                project: nodes.get(&i).unwrap().project.clone(),
             };
             nodes.insert(node.id, node);
         } else {
@@ -58,51 +52,6 @@ pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
     // }
     nodes
 }
-// // pub fn output_exec_from_test() -> HashMap<usize, Task> {
-// //     let g = graph!(id!("id");
-// //         // node!("1";vec![NodeAttributes::label("First Node".to_string())]),
-// //         node!("1";attr!("label","\"First Node\"")),
-// //         node!("2";attr!("label","\"Second Node\"")),
-// //         node!("3";attr!("label","\"Third Node\"")),
-// //         node!("4";attr!("label","\"Fourth Node\"")),
-// //         node!("5";attr!("label","\"Fifth Node\"")),
-// //         edge!(node_id!("3") => node_id!("4")),
-// //         edge!(node_id!("1") => node_id!("2"))
-// //     );
-// //     let annotated_dot = exec(g, &mut PrinterContext::default(), vec![]).unwrap();
-// //     let position_data = str::from_utf8(&annotated_dot).unwrap();
-// //     // println!("{}", position_data);
-// //     let mut elements = graph_elements(position_data);
-// //     elements.remove(0);
-// //     elements.remove(0);
-// //     let mut nodes = HashMap::new();
-// //     let mut edges = vec![];
-// //     for e in elements {
-// //         if is_node(&e) {
-// //             // parse node
-// //             let (i, label, point, s) = parse_node(&e).unwrap();
-// //             let node = Task {
-// //                 id: i,
-// //                 location: point,
-// //                 size: s,
-// //                 label: label.to_string(),
-// //                 dependancies: vec![],
-// //                 project: String::new(),
-// //             };
-// //             nodes.insert(node.id, node);
-// //         } else {
-// //             // parse edge
-// //             let edge = parse_edge(&e).unwrap();
-// //             edges.push(edge);
-// //         }
-// //     }
-// //     for e in edges {
-// //         let mut editing_node = nodes.get(&e.start_id).unwrap().clone();
-// //         editing_node.dependancies.push(e.end_id);
-// //         let _ = nodes.insert(editing_node.id, editing_node);
-// //     }
-// //     nodes
-// }
 
 #[test]
 fn graph_parse_basic() {
