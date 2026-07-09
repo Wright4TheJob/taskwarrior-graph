@@ -25,7 +25,6 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     // let uuids = query_tw_for_column(&"uuid.short");
     let descriptions = query_tw_for_column(&"description");
     let depends_str = query_tw_for_column(&"depends");
-    println!("{:#?}", depends_str);
     let depends: HashMap<usize, Vec<usize>> = depends_str
         .iter()
         .map(|(id, s)| (id.clone(), parse_dep_string(s)))

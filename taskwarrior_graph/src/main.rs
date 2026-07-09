@@ -107,7 +107,7 @@ impl TwGraph {
             ));
             for line in node.dependancies {
                 let start = node.location;
-                let end = self.tasks.get(&line).unwrap().location;
+                let end = self.filtered_tasks.get(&line).unwrap().location;
                 lines.push(Line { start, end })
             }
         }
