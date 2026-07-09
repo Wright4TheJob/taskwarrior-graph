@@ -22,7 +22,7 @@ pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
     for (_, task) in tasks {
         for dependancy in &task.dependancies {
             g.add_stmt(
-                edge!(node_id!(format!("{}",dependancy))=> node_id!(format!("{}",task.id))).into(),
+                edge!(node_id!(format!("{}",task.id))=> node_id!(format!("{}",dependancy))).into(),
             );
         }
     }
