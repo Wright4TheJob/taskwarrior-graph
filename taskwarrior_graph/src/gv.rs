@@ -10,7 +10,7 @@ use crate::tw::Task;
 pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
     let mut nodes = tasks.clone();
     let mut g = graph!(id!("id"));
-    for (_, task) in tasks {
+    for (_, task) in tasks.clone() {
         let node_id = format!("{}", task.id);
         let label_attr = format!("\"{}\"", task.label);
         g.add_stmt(
@@ -18,6 +18,13 @@ pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
                 attr!("label",label_attr.as_str()))
             .into(),
         );
+    }
+    for (_, task) in tasks {
+        for dependancy in &task.dependancies {
+            g.add_stmt(
+                edge!(node_id!(format!("{}",dependancy))=> node_id!(format!("{}",task.id))).into(),
+            );
+        }
     }
 
     let annotated_dot = exec(g, &mut PrinterContext::default(), vec![]).unwrap();

@@ -24,8 +24,12 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
     let descriptions = query_tw_for_column(&"description");
-    let depends = query_tw_for_column(&"depends");
-    let depends: Vec<Vec<usize>> = depends.iter().map(|(_, s)| parse_dep_string(s)).collect();
+    let depends_str = query_tw_for_column(&"depends");
+    println!("{:#?}", depends_str);
+    let depends: HashMap<usize, Vec<usize>> = depends_str
+        .iter()
+        .map(|(id, s)| (id.clone(), parse_dep_string(s)))
+        .collect();
     // let statuses = query_tw_for_column(&"status");
     let projects = query_tw_for_column(&"project");
     // println!("{:?}", projects);
@@ -46,7 +50,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 y: (30 * i) as f32,
             },
             label: desc,
-            dependancies: depends[i.clone() - 1].clone(),
+            dependancies: depends.get(i).unwrap().clone(),
             project: projects.get(i).unwrap().clone(),
         };
         tasks.insert(this_task.id, this_task);
@@ -103,6 +107,13 @@ fn test_parse_project_string() {
     assert_eq!(id, 56);
     assert_eq!(proj, Some("organize".to_string()))
 }
+#[test]
+fn test_parse_dependancy_string() {
+    let line = "56 54,32";
+    let (id, proj) = parse_line(line);
+    assert_eq!(id, 56);
+    assert_eq!(proj, Some("54,32".to_string()))
+}
 fn parse_id_string(id_string: &str) -> usize {
     // match id_string {
     // "-" => None,
@@ -111,10 +122,7 @@ fn parse_id_string(id_string: &str) -> usize {
     id_string.parse().unwrap_or(0)
 }
 fn parse_dep_string(dep_string: &str) -> Vec<usize> {
-    let deps_strings: Vec<String> = dep_string
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect();
+    let deps_strings: Vec<String> = dep_string.split(' ').map(|s| s.to_string()).collect();
 
     let mut deps = Vec::new();
     for dep in deps_strings {
@@ -125,6 +133,12 @@ fn parse_dep_string(dep_string: &str) -> Vec<usize> {
     }
 
     deps
+}
+#[test]
+fn test_parse_dependancy() {
+    let dep_string = "56 57";
+    let deps = parse_dep_string(dep_string);
+    assert_eq!(deps, vec![56, 57]);
 }
 
 #[test]
