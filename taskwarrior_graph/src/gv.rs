@@ -44,6 +44,7 @@ pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
                 label: label.to_string(),
                 dependancies: nodes.get(&i).unwrap().dependancies.clone(),
                 project: nodes.get(&i).unwrap().project.clone(),
+                tags: nodes.get(&i).unwrap().tags.clone(),
             };
             nodes.insert(node.id, node);
         } else {

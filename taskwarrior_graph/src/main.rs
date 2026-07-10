@@ -107,8 +107,13 @@ impl TwGraph {
             ));
             for line in node.dependancies {
                 let start = node.location;
-                let end = self.filtered_tasks.get(&line).unwrap().location;
-                lines.push(Line { start, end })
+                let end_opt = self.filtered_tasks.get(&line);
+                if let Some(end) = end_opt {
+                    lines.push(Line {
+                        start,
+                        end: end.location,
+                    })
+                }
             }
         }
         let this_canvas = MyCanvas {

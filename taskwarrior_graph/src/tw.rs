@@ -1,5 +1,3 @@
-use graphviz_rust::attributes::color_name::indianred1;
-use graphviz_rust::parse;
 use iced::{Point, Size};
 use regex::Regex;
 use std::collections::HashMap;
@@ -13,6 +11,7 @@ pub struct Task {
     pub label: String,
     pub dependancies: Vec<usize>,
     pub project: String,
+    pub tags: Vec<String>,
 }
 
 impl Task {
@@ -34,6 +33,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     // println!("{:?}", projects);
     let ids_strings = query_tw_for_column(&"id");
     let ids: Vec<&usize> = ids_strings.keys().collect();
+    let tags = query_tw_for_column(&"tags");
     for i in ids {
         let desc = descriptions.get(i).unwrap().clone();
         let this_task = Task {
@@ -51,6 +51,12 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
             label: desc,
             dependancies: depends.get(i).unwrap().clone(),
             project: projects.get(i).unwrap().clone(),
+            tags: tags
+                .get(&i)
+                .unwrap()
+                .split(" ")
+                .map(|s| s.to_string())
+                .collect(),
         };
         tasks.insert(this_task.id, this_task);
     }
@@ -113,13 +119,7 @@ fn test_parse_dependancy_string() {
     assert_eq!(id, 56);
     assert_eq!(proj, Some("54,32".to_string()))
 }
-fn parse_id_string(id_string: &str) -> usize {
-    // match id_string {
-    // "-" => None,
-    // _ => id_string.parse().ok(),
-    // }
-    id_string.parse().unwrap_or(0)
-}
+
 fn parse_dep_string(dep_string: &str) -> Vec<usize> {
     let deps_strings: Vec<String> = dep_string.split(' ').map(|s| s.to_string()).collect();
 
@@ -149,6 +149,7 @@ fn task_project_matches_str() {
         label: "Test".to_string(),
         project: "This is a house project".to_string(),
         dependancies: Vec::new(),
+        tags: Vec::new(),
     };
     assert!(t.project_contains("h"));
     assert!(t.project_contains("project"));
