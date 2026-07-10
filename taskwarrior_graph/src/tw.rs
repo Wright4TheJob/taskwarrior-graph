@@ -18,6 +18,15 @@ impl Task {
     pub fn project_contains(&self, s: &str) -> bool {
         self.project.contains(s)
     }
+    pub fn any_tag_contains(&self, s: &str) -> bool {
+        let mut result = false;
+        for tag in self.tags.clone() {
+            if tag.contains(s) {
+                result = true;
+            }
+        }
+        result
+    }
 }
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();

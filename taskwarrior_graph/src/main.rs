@@ -137,6 +137,7 @@ impl TwGraph {
                 column!(
                     text("Tags"),
                     text_input("Tag filters", self.tag_filter.as_str())
+                        .on_input(Message::TagFilterChanged)
                 ),
                 // text("Show only active"),
                 // checkbox(self.only_show_active),
@@ -152,6 +153,10 @@ impl TwGraph {
         match message {
             Message::ProjectFilterChanged(filter) => {
                 self.project_filter = filter;
+                self.filter_tasks();
+            }
+            Message::TagFilterChanged(filter) => {
+                self.tag_filter = filter;
                 self.filter_tasks();
             }
             Message::MouseMoved(position) => {
@@ -221,6 +226,7 @@ impl TwGraph {
         let mut tasks = self.tasks.clone();
         tasks.retain(|_, t| t.project_contains(&self.project_filter));
         // filter by tags next
+        tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
         let positioned_nodes = position(tasks);
         self.filtered_tasks = positioned_nodes;
     }
@@ -241,6 +247,7 @@ enum Message {
     MouseReleased,
     WindowResized(Size<f32>),
     ProjectFilterChanged(String),
+    TagFilterChanged(String),
 }
 
 // Then, we implement the `Program` trait
