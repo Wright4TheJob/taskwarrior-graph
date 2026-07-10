@@ -15,6 +15,16 @@ fn line_length(point1: &Point<f32>, point2: &Point<f32>) -> f32 {
     ((point2.x - point1.x).powi(2) + (point2.y - point1.y).powi(2)).sqrt()
 }
 #[test]
+fn line_length_exchangeable() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let d1 = line_length(&p1, &p2);
+    println!("d1: {:?}", d1);
+    let d2 = line_length(&p2, &p1);
+    println!("d2: {:?}", d2);
+    assert!((d1 - d2).abs() < 0.01);
+}
+#[test]
 fn length_horiz() {
     let p1 = Point { x: 0., y: 0. };
     let p2 = Point { x: 2., y: 0. };
@@ -54,11 +64,9 @@ fn vertical_angle() {
     let p2 = Point { x: 0., y: 2. };
     assert_eq!(angle_from_points(&p1, &p2), PI / 2.);
 }
-fn normal_dist_to_line(point: &Point<f32>, line_start: &Point<f32>, line_end: &Point<f32>) -> f32 {
-    let numerator = (line_end.y - line_start.y) * point.x - (line_end.x - line_start.x) * point.y
-        + line_end.x * line_start.y
-        - line_end.y * line_start.y;
-    numerator.abs() / line_length(line_start, line_end)
+fn normal_dist_to_line(p0: &Point<f32>, p1: &Point<f32>, p2: &Point<f32>) -> f32 {
+    let numerator = (p2.y - p1.y) * p0.x - (p2.x - p1.x) * p0.y + p2.x * p1.y - p2.y * p1.x;
+    numerator.abs() / line_length(p1, p2)
 }
 
 #[test]
@@ -68,6 +76,45 @@ fn simple_distance_to_line() {
     let test_point = Point { x: 1., y: 1. };
     let distance_theory = 1.0;
     assert_eq!(normal_dist_to_line(&test_point, &p1, &p2), distance_theory)
+}
+
+#[test]
+fn normal_distance_to_line_exchangeable() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    let d1 = normal_dist_to_line(&mouse, &p1, &p2);
+    println!("d1: {:?}", d1);
+    let d2 = normal_dist_to_line(&mouse, &p2, &p1);
+    println!("d2: {:?}", d2);
+    assert!((d1 - d2).abs() < 0.01);
+}
+
+#[test]
+fn less_simple_distance_to_line() {
+    let p1 = Point { x: 0., y: 0. };
+    let p2 = Point { x: 2., y: 2. };
+    let test_point = Point { x: 1., y: 0. };
+    let distance_theory = 0.707;
+    let error = dist_to_line_seg(&test_point, &p1, &p2) - distance_theory;
+    assert!(error.abs() < 0.01)
+}
+
+#[test]
+fn negative_slope_distance_to_line() {
+    let p1 = Point { x: 0., y: 0. };
+    let p2 = Point { x: 2., y: -2. };
+    let test_point1 = Point { x: 1., y: 0. };
+    let distance_theory1 = 0.707;
+    let test_point2 = Point { x: -1., y: 0. };
+    let distance_theory2 = 1.;
+    let error1 = dist_to_line_seg(&test_point1, &p1, &p2) - distance_theory1;
+    let error2 = dist_to_line_seg(&test_point2, &p1, &p2) - distance_theory2;
+    assert!(error1.abs() < 0.01);
+    assert!(error2.abs() < 0.01);
 }
 
 pub fn dist_to_line_seg(point: &Point<f32>, start: &Point<f32>, end: &Point<f32>) -> f32 {
@@ -85,9 +132,53 @@ fn simple_point_beyond_line() {
     let p1 = Point { x: 0., y: 0. };
     let p2 = Point { x: 2., y: 0. };
     let test_point = Point { x: 4., y: 0. };
+    let test_point_less = Point { x: -1., y: 0. };
     let distance_theory = 2.0;
-    assert_eq!(dist_to_line_seg(&test_point, &p1, &p2), distance_theory)
+    assert_eq!(dist_to_line_seg(&test_point, &p1, &p2), distance_theory);
+    assert_eq!(dist_to_line_seg(&test_point_less, &p1, &p2), 1.0);
 }
+
+#[test]
+fn test_dist_to_line_exchangable() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    let d1 = dist_to_line_seg(&mouse, &p1, &p2);
+    let d2 = dist_to_line_seg(&mouse, &p2, &p1);
+    assert_eq!(d1, d2);
+}
+// point1: Point { x: 153.39, y: 90 }
+// point2: Point { x: 301.39, y: 18 }
+// mouse: Point { x: 224.6289, y: 135.29297 }
+// dist: 64.96085
+// point1: Point { x: 450.39, y: 90 }
+// point2: Point { x: 301.39, y: 18 }
+// mouse: Point { x: 224.6289, y: 135.29297 }
+// dist: 178.20726
+#[test]
+fn test_real_data_1() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    let error = 9. - dist_to_line_seg(&mouse, &p1, &p2);
+    println!("error: {}", error);
+    assert!(error.abs() < 2.);
+}
+// point1: Point { x: 301.39, y: 162 }
+// point2: Point { x: 153.39, y: 90 }
+// mouse: Point { x: 224.6289, y: 135.29297 }
+// dist: 85.787384
+// point1: Point { x: 301.39, y: 162 }
+// point2: Point { x: 450.39, y: 90 }
+// mouse: Point { x: 224.6289, y: 135.29297 }
+// dist: 81.27443
+
 fn intercept(start: &Point<f32>, end: &Point<f32>) -> f32 {
     start.y - slope_from_points(start, end) * start.x
 }
@@ -104,7 +195,16 @@ fn test_above_line() {
     let test_point = Point { x: 4., y: 3. };
     assert!(point_above_line(&test_point, &p1, &p2))
 }
-
+#[test]
+fn test_above_line_real_data_1() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    assert!(point_above_line(&mouse, &p1, &p2));
+}
 fn project_point_on_line(
     point: &Point<f32>,
     line_start: &Point<f32>,
@@ -122,6 +222,29 @@ fn project_point_on_line(
         x: point.x + dx,
         y: point.y + dy,
     }
+}
+#[test]
+fn project_point_on_line_three_quarter() {
+    let p1 = Point { x: 0., y: 0. };
+    let p2 = Point { x: 4., y: 4. };
+    let mouse = Point { x: 0., y: 2. };
+    assert!((project_point_on_line(&mouse, &p1, &p2).x - 1.).abs() < 0.01);
+    assert!((project_point_on_line(&mouse, &p1, &p2).y - 1.).abs() < 0.01);
+}
+#[test]
+fn project_point_on_line_exchangeable() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    let p3 = project_point_on_line(&mouse, &p1, &p2);
+    println!("p3: {:?}", p3);
+    let p4 = project_point_on_line(&mouse, &p2, &p1);
+    println!("p4: {:?}", p4);
+    assert!((p3.x - p4.x).abs() < 0.01);
+    assert!((p3.y - p4.y).abs() < 0.01);
 }
 
 #[test]
@@ -167,4 +290,14 @@ fn lerp_inv(point: &Point<f32>, start: &Point<f32>, end: &Point<f32>) -> f32 {
         (p.x - start.x) / (end.x - start.x)
     };
     t
+}
+#[test]
+fn test_lerp_real_data_1() {
+    let p1 = Point { x: 301.39, y: 162. };
+    let p2 = Point { x: 153.39, y: 90. };
+    let mouse = Point {
+        x: 224.6289,
+        y: 135.29297,
+    };
+    debug_assert_eq!(lerp_inv(&mouse, &p1, &p2), 1. - lerp_inv(&mouse, &p2, &p1));
 }

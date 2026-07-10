@@ -28,6 +28,7 @@ pub struct TwGraph {
     canvas_size: Size,
     project_filter: String,
     tag_filter: String,
+    selected_line: Option<(usize, usize)>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -100,7 +101,7 @@ impl TwGraph {
             });
             labels.push((
                 Label {
-                    text: node.label,
+                    text: format!("{}: {}", node.id, node.label),
                     location: node.location,
                 },
                 node.size.width,
@@ -195,7 +196,7 @@ impl TwGraph {
             Message::MouseReleased => {
                 if let Some(line_start_node_id) = self.line_start_node_id.clone() {
                     let start_node = line_start_node_id.clone();
-                    for (_, node) in self.tasks.clone() {
+                    for (_, node) in self.filtered_tasks.clone() {
                         if is_within_rect(&node, &self.canvas_mouse_position) {
                             if node.id == self.line_start_node_id.unwrap() {
                                 // represents a click within a single box
@@ -212,6 +213,22 @@ impl TwGraph {
                     }
                 }
 
+                for (_, node) in self.filtered_tasks.clone() {
+                    for dep in node.dependancies {
+                        if let Some(dep_node) = self.filtered_tasks.get(&dep) {
+                            let dist = dist_to_line_seg(
+                                &self.canvas_mouse_position,
+                                &node.location,
+                                &dep_node.location,
+                            );
+
+                            if dist < 10. {
+                                // a line was clicked!
+                                println!("line clicked: {} -> {}", node.id, dep_node.id);
+                            }
+                        }
+                    }
+                }
                 self.filter_tasks();
                 self.line_start_node_id = None;
                 self.user_status = UserStatus::Default;
@@ -227,6 +244,7 @@ impl TwGraph {
         tasks.retain(|_, t| t.project_contains(&self.project_filter));
         // filter by tags next
         tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
+        // todo: scale boxes and positions here, if necessary
         let positioned_nodes = position(tasks);
         self.filtered_tasks = positioned_nodes;
     }

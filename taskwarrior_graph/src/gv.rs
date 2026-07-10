@@ -134,17 +134,18 @@ fn parse_node(e: &String) -> Option<(usize, &str, Point, Size)> {
         r#"([0-9A-Za-z_]+)\[height=([0-9.]+),label=(.+),pos=([0-9.]+),([0-9.]+),width=([0-9.]+)"#;
     let re = Regex::new(regex_string).unwrap();
     let (_, [id_string, h, label, x, y, w]) = re.captures(e).unwrap().extract::<6>();
-    let scale_fac = 72.;
+    let box_scale_factor = 50.;
+    let position_scale_factor = 1.0 as f32;
     Some((
         id_string.parse().unwrap(),
         label,
         Point {
-            x: x.parse().unwrap(),
-            y: y.parse().unwrap(),
+            x: x.parse::<f32>().unwrap() * position_scale_factor,
+            y: y.parse::<f32>().unwrap() * position_scale_factor,
         },
         Size {
-            width: w.parse::<f32>().unwrap() * scale_fac,
-            height: h.parse::<f32>().unwrap() * scale_fac,
+            width: w.parse::<f32>().unwrap() * box_scale_factor,
+            height: h.parse::<f32>().unwrap() * box_scale_factor,
         },
     ))
 }
