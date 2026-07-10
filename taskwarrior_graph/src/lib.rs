@@ -6,7 +6,9 @@ use tw::Task;
 pub fn is_within_rect(node: &Task, point: &Point<f32>) -> bool {
     let min_x = point.x > node.location.x - node.size.width / 2.;
     let max_x = point.x < node.location.x + node.size.width / 2.;
-    min_x && max_x
+    let min_y = point.y > node.location.y - node.size.height / 2.;
+    let max_y = point.y < node.location.y + node.size.height / 2.;
+    min_x && max_x && min_y && max_y
 }
 
 fn line_length(point1: &Point<f32>, point2: &Point<f32>) -> f32 {

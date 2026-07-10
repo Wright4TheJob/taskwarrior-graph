@@ -157,18 +157,18 @@ impl TwGraph {
                 // If so, did the mouse then drag further than x pixels away from the start point?
                 // If so -> Start a link line
                 // If not -> Consider it a static click and mark the box as selected
-                let mut clicked_boxes = Vec::new();
+                let mut clicked_boxes = None;
                 let mut lines = Vec::new();
-                for (_, node) in self.tasks.clone() {
+                for (_, node) in self.filtered_tasks.clone() {
                     if is_within_rect(&node, &self.canvas_mouse_position) {
-                        clicked_boxes.push(node.id);
+                        clicked_boxes = Some(node.id);
                     }
                     for dep in node.dependancies {
                         lines.push((node.id, dep));
                     }
                 }
-                if !clicked_boxes.is_empty() {
-                    self.line_start_node_id = Some(clicked_boxes[0].clone());
+                if clicked_boxes.is_some() {
+                    self.line_start_node_id = clicked_boxes;
                     self.line_start_point = self.canvas_mouse_position;
                     self.user_status = UserStatus::Dragging;
                 }
