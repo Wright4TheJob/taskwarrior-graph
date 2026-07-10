@@ -183,20 +183,26 @@ impl TwGraph {
                 }
             }
             Message::MouseReleased => {
-                let mut released_boxes = Vec::new();
                 if let Some(line_start_node_id) = self.line_start_node_id.clone() {
                     let start_node = line_start_node_id.clone();
                     for (_, node) in self.tasks.clone() {
                         if is_within_rect(&node, &self.canvas_mouse_position) {
-                            released_boxes.push(node.id);
-                            let mut modified_node = self.tasks.get(&start_node).unwrap().clone();
-                            if !modified_node.dependancies.contains(&node.id) {
-                                modified_node.dependancies.push(node.id);
-                            };
-                            self.tasks.insert(start_node.clone(), modified_node);
+                            if node.id == self.line_start_node_id.unwrap() {
+                                // represents a click within a single box
+                                // Toggle highlight on this box for click based dependandices
+                            } else {
+                                let mut modified_node = self.tasks.get(&node.id).unwrap().clone();
+                                if !modified_node.dependancies.contains(&start_node) {
+                                    modified_node.dependancies.push(start_node);
+                                };
+                                self.tasks.insert(node.id, modified_node);
+                                // todo: queue taskwarrior commands to save changes to dependancies
+                            }
                         }
                     }
                 }
+
+                self.filter_tasks();
                 self.line_start_node_id = None;
                 self.user_status = UserStatus::Default;
             }
