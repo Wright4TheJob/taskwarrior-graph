@@ -117,11 +117,21 @@ impl TwGraph {
                 }
             }
         }
+        let selected_line = match self.selected_line {
+            Some((start_id, end_id)) => {
+                let start = self.tasks.get(&start_id).unwrap().location;
+                let end = self.tasks.get(&end_id).unwrap().location;
+                Some(Line { start, end })
+            }
+            None => None,
+        };
+
         let this_canvas = MyCanvas {
             rectangles: outlines,
             labels: labels,
             lines: lines,
             active_line: active_line,
+            selected_line: selected_line,
             size: self.canvas_size,
         };
 
@@ -194,6 +204,8 @@ impl TwGraph {
                 }
             }
             Message::MouseReleased => {
+                // if a line is already started
+                let mut something_clicked = false;
                 if let Some(line_start_node_id) = self.line_start_node_id.clone() {
                     let start_node = line_start_node_id.clone();
                     for (_, node) in self.filtered_tasks.clone() {
@@ -211,23 +223,28 @@ impl TwGraph {
                             }
                         }
                     }
-                }
+                } else {
+                    for (_, node) in self.filtered_tasks.clone() {
+                        for dep in node.dependancies {
+                            if let Some(dep_node) = self.filtered_tasks.get(&dep) {
+                                let dist = dist_to_line_seg(
+                                    &self.canvas_mouse_position,
+                                    &node.location,
+                                    &dep_node.location,
+                                );
 
-                for (_, node) in self.filtered_tasks.clone() {
-                    for dep in node.dependancies {
-                        if let Some(dep_node) = self.filtered_tasks.get(&dep) {
-                            let dist = dist_to_line_seg(
-                                &self.canvas_mouse_position,
-                                &node.location,
-                                &dep_node.location,
-                            );
-
-                            if dist < 10. {
-                                // a line was clicked!
-                                println!("line clicked: {} -> {}", node.id, dep_node.id);
+                                if dist < 5. {
+                                    // a line was clicked!
+                                    self.selected_line = Some((node.id, dep_node.id));
+                                    something_clicked = true;
+                                }
                             }
                         }
                     }
+                }
+                if !something_clicked {
+                    self.selected_line = None;
+                    self.line_start_node_id = None;
                 }
                 self.filter_tasks();
                 self.line_start_node_id = None;
@@ -256,6 +273,7 @@ struct MyCanvas {
     labels: Vec<(Label, f32)>,
     lines: Vec<Line>,
     active_line: Option<Line>,
+    selected_line: Option<Line>,
     size: Size<f32>,
 }
 #[derive(Debug, Clone)]
@@ -282,10 +300,32 @@ impl<Message> canvas::Program<Message> for MyCanvas {
         _cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
         // We prepare a new `Frame`
+        let bg_color = Color::WHITE;
         let mut frame = canvas::Frame::new(renderer, self.size);
         let background = canvas::Path::rectangle(Point::new(0., 0.), self.size);
-        frame.fill(&background, Color::WHITE);
+        frame.fill(&background, bg_color);
+        // First we draw the lines
+        match self.active_line.clone() {
+            Some(a_line) => {
+                let line = canvas::Path::line(a_line.start, a_line.end);
+                frame.stroke(&line, Stroke::default());
+            }
+            None => (),
+        };
 
+        match self.selected_line.clone() {
+            Some(a_line) => {
+                let line = canvas::Path::line(a_line.start, a_line.end);
+                let mut stroke = Stroke::default().with_color(Color::from_rgb(1., 0., 0.));
+                stroke.width = 5.;
+                frame.stroke(&line, stroke);
+            }
+            None => (),
+        };
+        for line in &self.lines {
+            let line = canvas::Path::line(line.start, line.end);
+            frame.stroke(&line, Stroke::default());
+        }
         // Outlines for each node
         for rect in &self.rectangles {
             let rect_outline = canvas::Path::rectangle(
@@ -296,6 +336,7 @@ impl<Message> canvas::Program<Message> for MyCanvas {
                 },
             );
             frame.stroke(&rect_outline, Stroke::default());
+            frame.fill(&rect_outline, bg_color);
         }
 
         // Filled text for each node
@@ -313,17 +354,6 @@ impl<Message> canvas::Program<Message> for MyCanvas {
                 shaping: Shaping::Auto,
             });
         }
-        for line in &self.lines {
-            let line = canvas::Path::line(line.start, line.end);
-            frame.stroke(&line, Stroke::default());
-        }
-        match self.active_line.clone() {
-            Some(a_line) => {
-                let line = canvas::Path::line(a_line.start, a_line.end);
-                frame.stroke(&line, Stroke::default());
-            }
-            None => (),
-        };
         // Then, we produce the geometry
         vec![frame.into_geometry()]
     }
