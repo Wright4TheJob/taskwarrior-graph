@@ -1,5 +1,6 @@
 use crate::tw::{Task, tw_tasks};
 use iced::Size;
+use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::mouse;
 use iced::widget::canvas;
 use iced::widget::canvas::{Text, stroke::Stroke};
@@ -12,7 +13,9 @@ use iced::{
     mouse::Event::{ButtonPressed, ButtonReleased, CursorMoved},
     touch::Event::{FingerLifted, FingerMoved, FingerPressed},
 };
+use iced_core::SmolStr;
 use iced_core::text::Shaping;
+use index_of_item;
 use std::collections::HashMap;
 use taskwarrior_graph::gv::position;
 use taskwarrior_graph::*;
@@ -56,7 +59,7 @@ impl TwGraph {
         let mut app = TwGraph::default();
         // app.tasks = tw_tasks();
         app.tasks = position(tw_tasks());
-        app.filter_tasks();
+        app.redraw();
         // println!("{:#?}", app.tasks.clone());
         // output_exec_from_test();
         app
@@ -77,6 +80,10 @@ impl TwGraph {
                 Some(Message::MouseReleased)
             }
             (Event::Window(Resized(size)), Status::Ignored) => Some(Message::WindowResized(size)),
+
+            (Event::Keyboard(KeyPressed { key, .. }), Status::Ignored) => {
+                Some(Message::KeyPressed(key))
+            }
             _ => None,
         })
     }
@@ -119,8 +126,8 @@ impl TwGraph {
         }
         let selected_line = match self.selected_line {
             Some((start_id, end_id)) => {
-                let start = self.tasks.get(&start_id).unwrap().location;
-                let end = self.tasks.get(&end_id).unwrap().location;
+                let start = self.filtered_tasks.get(&start_id).unwrap().location;
+                let end = self.filtered_tasks.get(&end_id).unwrap().location;
                 Some(Line { start, end })
             }
             None => None,
@@ -164,11 +171,11 @@ impl TwGraph {
         match message {
             Message::ProjectFilterChanged(filter) => {
                 self.project_filter = filter;
-                self.filter_tasks();
+                self.redraw();
             }
             Message::TagFilterChanged(filter) => {
                 self.tag_filter = filter;
-                self.filter_tasks();
+                self.redraw();
             }
             Message::MouseMoved(position) => {
                 self.canvas_mouse_position = offset_point(position, Point::new(0.0, 40.0));
@@ -232,8 +239,7 @@ impl TwGraph {
                                     &node.location,
                                     &dep_node.location,
                                 );
-
-                                if dist < 5. {
+                                if dist < 9. {
                                     // a line was clicked!
                                     self.selected_line = Some((node.id, dep_node.id));
                                     something_clicked = true;
@@ -246,17 +252,40 @@ impl TwGraph {
                     self.selected_line = None;
                     self.line_start_node_id = None;
                 }
-                self.filter_tasks();
+                self.redraw();
                 self.line_start_node_id = None;
                 self.user_status = UserStatus::Default;
             }
             Message::WindowResized(size) => {
                 self.canvas_size = size;
             }
+            Message::KeyPressed(key) => {
+                match key {
+                    Key::Named(Named::Delete) => {
+                        println!("Delete Pressed");
+                        // if a line is selected, delete the currently selected line
+                        if self.selected_line.is_some() {
+                            let mut node = self
+                                .tasks
+                                .get(&self.selected_line.unwrap().0)
+                                .unwrap()
+                                .clone();
+                            let i =
+                                index_of_item(&self.selected_line.unwrap().1, &node.dependancies)
+                                    .unwrap();
+                            node.dependancies.swap_remove(i);
+                            self.tasks.insert(node.id, node);
+                            self.selected_line = None;
+                            self.redraw();
+                        }
+                    }
+                    _ => (),
+                }
+            }
         }
     }
 
-    pub fn filter_tasks(&mut self) {
+    pub fn redraw(&mut self) {
         let mut tasks = self.tasks.clone();
         tasks.retain(|_, t| t.project_contains(&self.project_filter));
         // filter by tags next
@@ -284,6 +313,7 @@ enum Message {
     WindowResized(Size<f32>),
     ProjectFilterChanged(String),
     TagFilterChanged(String),
+    KeyPressed(Key<SmolStr>),
 }
 
 // Then, we implement the `Program` trait

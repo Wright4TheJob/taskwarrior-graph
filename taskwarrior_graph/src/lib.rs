@@ -10,7 +10,14 @@ pub fn is_within_rect(node: &Task, point: &Point<f32>) -> bool {
     let max_y = point.y < node.location.y + node.size.height / 2.;
     min_x && max_x && min_y && max_y
 }
-
+pub fn index_of_item<T: Eq>(target: &T, items: &Vec<T>) -> Option<usize> {
+    for (i, item) in items.iter().enumerate() {
+        if item == target {
+            return Some(i);
+        }
+    }
+    None
+}
 fn line_length(point1: &Point<f32>, point2: &Point<f32>) -> f32 {
     ((point2.x - point1.x).powi(2) + (point2.y - point1.y).powi(2)).sqrt()
 }
