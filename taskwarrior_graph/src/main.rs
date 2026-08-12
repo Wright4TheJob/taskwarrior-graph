@@ -20,7 +20,6 @@ use std::collections::HashMap;
 use taskwarrior_graph::gv::position;
 use taskwarrior_graph::*;
 
-#[derive(Default)]
 pub struct TwGraph {
     tasks: HashMap<usize, Task>,
     filtered_tasks: HashMap<usize, Task>,
@@ -32,6 +31,27 @@ pub struct TwGraph {
     project_filter: String,
     tag_filter: String,
     selected_line: Option<(usize, usize)>,
+    canvas_scale: f32,
+    canvas_offset: Point<f32>,
+}
+
+impl Default for TwGraph {
+    fn default() -> Self {
+        TwGraph {
+            tasks: HashMap::new(),
+            filtered_tasks: HashMap::new(),
+            canvas_mouse_position: Point::default(),
+            canvas_scale: 1.,
+            user_status: UserStatus::Default,
+            line_start_point: Point::default(),
+            line_start_node_id: None,
+            canvas_size: Size::default(),
+            project_filter: String::new(),
+            tag_filter: String::new(),
+            selected_line: None,
+            canvas_offset: Point::default(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -140,6 +160,8 @@ impl TwGraph {
             active_line: active_line,
             selected_line: selected_line,
             size: self.canvas_size,
+            scale: self.canvas_scale,
+            offset: self.canvas_offset,
         };
 
         column!(
@@ -178,7 +200,12 @@ impl TwGraph {
                 self.redraw();
             }
             Message::MouseMoved(position) => {
-                self.canvas_mouse_position = offset_point(position, Point::new(0.0, 40.0));
+                let menu_offset = Point::new(0.0, 40.0);
+                let menu_offset_point = offset_point(position, menu_offset);
+                self.canvas_mouse_position = Point {
+                    x: menu_offset_point.x * self.canvas_scale + self.canvas_offset.x,
+                    y: menu_offset_point.y * self.canvas_scale + self.canvas_offset.y,
+                };
             }
             Message::MouseClicked => {
                 // Did the mouse click inside a box? -> potentially start a line
@@ -304,6 +331,16 @@ struct MyCanvas {
     active_line: Option<Line>,
     selected_line: Option<Line>,
     size: Size<f32>,
+    scale: f32,
+    offset: Point<f32>,
+}
+impl MyCanvas {
+    pub fn trans(&self, p: Point<f32>) -> Point<f32> {
+        Point {
+            x: p.x * self.scale + self.offset.x,
+            y: p.y * self.scale + self.offset.y,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 enum Message {
@@ -337,7 +374,7 @@ impl<Message> canvas::Program<Message> for MyCanvas {
         // First we draw the lines
         match self.active_line.clone() {
             Some(a_line) => {
-                let line = canvas::Path::line(a_line.start, a_line.end);
+                let line = canvas::Path::line(self.trans(a_line.start), self.trans(a_line.end));
                 frame.stroke(&line, Stroke::default());
             }
             None => (),
@@ -345,7 +382,7 @@ impl<Message> canvas::Program<Message> for MyCanvas {
 
         match self.selected_line.clone() {
             Some(a_line) => {
-                let line = canvas::Path::line(a_line.start, a_line.end);
+                let line = canvas::Path::line(self.trans(a_line.start), self.trans(a_line.end));
                 let mut stroke = Stroke::default().with_color(Color::from_rgb(1., 0., 0.));
                 stroke.width = 5.;
                 frame.stroke(&line, stroke);
@@ -353,16 +390,19 @@ impl<Message> canvas::Program<Message> for MyCanvas {
             None => (),
         };
         for line in &self.lines {
-            let line = canvas::Path::line(line.start, line.end);
+            let line = canvas::Path::line(self.trans(line.start), self.trans(line.end));
             frame.stroke(&line, Stroke::default());
         }
         // Outlines for each node
         for rect in &self.rectangles {
             let rect_outline = canvas::Path::rectangle(
-                Point::new(rect.x - rect.width / 2., rect.y - rect.height / 2.),
+                self.trans(Point::new(
+                    rect.x - rect.width / 2.,
+                    rect.y - rect.height / 2.,
+                )),
                 Size {
-                    width: rect.width,
-                    height: rect.height,
+                    width: rect.width * self.scale,
+                    height: rect.height * self.scale,
                 },
             );
             frame.stroke(&rect_outline, Stroke::default());
@@ -373,14 +413,16 @@ impl<Message> canvas::Program<Message> for MyCanvas {
         for (t, w) in &self.labels {
             frame.fill_text(Text {
                 content: t.text.clone(),
-                position: t.location,
+                position: self.trans(t.location),
                 max_width: w.clone(),
                 color: Color::BLACK,
-                size: iced::Pixels(12.0),
+                size: iced::Pixels(12.0 * self.scale),
                 font: iced::Font::default(),
                 align_y: iced::alignment::Vertical::Center,
                 align_x: iced::alignment::Horizontal::Center.into(),
-                line_height: iced::widget::text::LineHeight::Absolute(iced::Pixels(24.0)),
+                line_height: iced::widget::text::LineHeight::Absolute(iced::Pixels(
+                    24.0 * self.scale,
+                )),
                 shaping: Shaping::Auto,
             });
         }
