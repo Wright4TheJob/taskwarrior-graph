@@ -33,6 +33,7 @@ pub struct TwGraph {
     selected_line: Option<(usize, usize)>,
     canvas_scale: f32,
     canvas_offset: Point<f32>,
+    changed_deps: Vec<DepChange>,
 }
 
 impl Default for TwGraph {
@@ -50,6 +51,7 @@ impl Default for TwGraph {
             tag_filter: String::new(),
             selected_line: None,
             canvas_offset: Point::default(),
+            changed_deps: Vec::new(),
         }
     }
 }
@@ -73,6 +75,18 @@ enum UserStatus {
     Dragging,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ChangeType {
+    Add,
+    Remove,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DepChange {
+    change: ChangeType,
+    start: usize,
+    end: usize,
+}
 // Main program handles state changes, user interactions, and all decision trees. Main program breaks down abstract or composite elements like "box with text in it" into the drawing primatives to be handled by the canvas widget.
 impl TwGraph {
     fn new() -> TwGraph {
@@ -248,12 +262,31 @@ impl TwGraph {
                                 // represents a click within a single box
                                 // Toggle highlight on this box for click based dependandices
                             } else {
+                                // A new dependancy was created!
                                 let mut modified_node = self.tasks.get(&node.id).unwrap().clone();
                                 if !modified_node.dependancies.contains(&start_node) {
                                     modified_node.dependancies.push(start_node);
                                 };
                                 self.tasks.insert(node.id, modified_node);
                                 // todo: queue taskwarrior commands to save changes to dependancies
+                                // Update dependancy list
+                                let removed_change = DepChange {
+                                    change: ChangeType::Remove,
+                                    start: start_node,
+                                    end: node.id,
+                                };
+                                if self.changed_deps.contains(&removed_change) {
+                                    let dep_i = index_of_item(&removed_change, &self.changed_deps);
+                                    if let Some(dep_index) = dep_i {
+                                        self.changed_deps.swap_remove(dep_index);
+                                    }
+                                } else {
+                                    self.changed_deps.push(DepChange {
+                                        change: ChangeType::Add,
+                                        start: start_node,
+                                        end: node.id,
+                                    })
+                                }
                             }
                         }
                     }
@@ -289,9 +322,10 @@ impl TwGraph {
             Message::KeyPressed(key) => {
                 match key {
                     Key::Named(Named::Delete) => {
-                        println!("Delete Pressed");
                         // if a line is selected, delete the currently selected line
                         if self.selected_line.is_some() {
+                            let line_start = self.selected_line.unwrap().0;
+                            let line_end = self.selected_line.unwrap().1;
                             let mut node = self
                                 .tasks
                                 .get(&self.selected_line.unwrap().0)
@@ -301,15 +335,36 @@ impl TwGraph {
                                 index_of_item(&self.selected_line.unwrap().1, &node.dependancies)
                                     .unwrap();
                             node.dependancies.swap_remove(i);
-                            self.tasks.insert(node.id, node);
+                            self.tasks.insert(node.id, node.clone());
                             self.selected_line = None;
                             self.redraw();
+
+                            // update the dependancy change list
+                            let change = DepChange {
+                                change: ChangeType::Add,
+                                start: i,
+                                end: node.id,
+                            };
+                            if self.changed_deps.contains(&change) {
+                                let dep_i = index_of_item(&change, &self.changed_deps);
+                                if let Some(dep_index) = dep_i {
+                                    self.changed_deps.swap_remove(dep_index);
+                                }
+                            } else {
+                                let delete = DepChange {
+                                    change: ChangeType::Remove,
+                                    start: line_end,
+                                    end: node.id,
+                                };
+                                self.changed_deps.push(delete);
+                            }
                         }
                     }
                     _ => (),
                 }
             }
         }
+        println!("{:#?}", self.changed_deps);
     }
 
     pub fn redraw(&mut self) {
