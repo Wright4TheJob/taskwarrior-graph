@@ -252,66 +252,7 @@ impl TwGraph {
                 }
             }
             Message::MouseReleased => {
-                // if a line is already started
-                let mut something_clicked = false;
-                if let Some(line_start_node_id) = self.line_start_node_id.clone() {
-                    let start_node = line_start_node_id.clone();
-                    for (_, node) in self.filtered_tasks.clone() {
-                        if is_within_rect(&node, &self.canvas_mouse_position) {
-                            if node.id == self.line_start_node_id.unwrap() {
-                                // represents a click within a single box
-                                // Toggle highlight on this box for click based dependandices
-                            } else {
-                                // A new dependancy was created!
-                                let mut modified_node = self.tasks.get(&node.id).unwrap().clone();
-                                if !modified_node.dependancies.contains(&start_node) {
-                                    modified_node.dependancies.push(start_node);
-                                };
-                                self.tasks.insert(node.id, modified_node);
-                                // todo: queue taskwarrior commands to save changes to dependancies
-                                // Update dependancy list
-                                let removed_change = DepChange {
-                                    change: ChangeType::Remove,
-                                    start: start_node,
-                                    end: node.id,
-                                };
-                                if self.changed_deps.contains(&removed_change) {
-                                    let dep_i = index_of_item(&removed_change, &self.changed_deps);
-                                    if let Some(dep_index) = dep_i {
-                                        self.changed_deps.swap_remove(dep_index);
-                                    }
-                                } else {
-                                    self.changed_deps.push(DepChange {
-                                        change: ChangeType::Add,
-                                        start: start_node,
-                                        end: node.id,
-                                    })
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    for (_, node) in self.filtered_tasks.clone() {
-                        for dep in node.dependancies {
-                            if let Some(dep_node) = self.filtered_tasks.get(&dep) {
-                                let dist = dist_to_line_seg(
-                                    &self.canvas_mouse_position,
-                                    &node.location,
-                                    &dep_node.location,
-                                );
-                                if dist < 9. {
-                                    // a line was clicked!
-                                    self.selected_line = Some((node.id, dep_node.id));
-                                    something_clicked = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                if !something_clicked {
-                    self.selected_line = None;
-                    self.line_start_node_id = None;
-                }
+                self.mouse_released();
                 self.redraw();
                 self.line_start_node_id = None;
                 self.user_status = UserStatus::Default;
@@ -323,42 +264,7 @@ impl TwGraph {
                 match key {
                     Key::Named(Named::Delete) => {
                         // if a line is selected, delete the currently selected line
-                        if self.selected_line.is_some() {
-                            let line_start = self.selected_line.unwrap().0;
-                            let line_end = self.selected_line.unwrap().1;
-                            let mut node = self
-                                .tasks
-                                .get(&self.selected_line.unwrap().0)
-                                .unwrap()
-                                .clone();
-                            let i =
-                                index_of_item(&self.selected_line.unwrap().1, &node.dependancies)
-                                    .unwrap();
-                            node.dependancies.swap_remove(i);
-                            self.tasks.insert(node.id, node.clone());
-                            self.selected_line = None;
-                            self.redraw();
-
-                            // update the dependancy change list
-                            let change = DepChange {
-                                change: ChangeType::Add,
-                                start: i,
-                                end: node.id,
-                            };
-                            if self.changed_deps.contains(&change) {
-                                let dep_i = index_of_item(&change, &self.changed_deps);
-                                if let Some(dep_index) = dep_i {
-                                    self.changed_deps.swap_remove(dep_index);
-                                }
-                            } else {
-                                let delete = DepChange {
-                                    change: ChangeType::Remove,
-                                    start: line_end,
-                                    end: node.id,
-                                };
-                                self.changed_deps.push(delete);
-                            }
-                        }
+                        self.delete_selected_line_if_selected();
                     }
                     _ => (),
                 }
@@ -375,6 +281,114 @@ impl TwGraph {
         // todo: scale boxes and positions here, if necessary
         let positioned_nodes = position(tasks);
         self.filtered_tasks = positioned_nodes;
+    }
+    pub fn line_started(&self) -> bool {
+        self.line_start_node_id.is_some()
+    }
+
+    pub fn mouse_released(&mut self) {
+        let mut something_clicked = false;
+        if self.line_started() {
+            self.end_line_drawing();
+        } else {
+            self.selected_line = self.line_clicked();
+            if self.selected_line.is_some() {
+                something_clicked = true;
+            }
+        }
+        if !something_clicked {
+            self.selected_line = None;
+            self.line_start_node_id = None;
+        }
+    }
+    pub fn line_clicked(&mut self) -> Option<(usize, usize)> {
+        for (_, node) in self.filtered_tasks.clone() {
+            for dep in node.dependancies {
+                if let Some(dep_node) = self.filtered_tasks.get(&dep) {
+                    let dist = dist_to_line_seg(
+                        &self.canvas_mouse_position,
+                        &node.location,
+                        &dep_node.location,
+                    );
+                    if dist < 9. {
+                        // a line was clicked!
+                        return Some((node.id, dep_node.id));
+                    }
+                }
+            }
+        }
+        return None;
+    }
+    pub fn end_line_drawing(&mut self) {
+        let start_node = self.line_start_node_id.unwrap().clone();
+        for (_, node) in self.filtered_tasks.clone() {
+            if is_within_rect(&node, &self.canvas_mouse_position) && node.id != start_node {
+                // A new dependancy was created!
+                let mut modified_node = self.tasks.get(&node.id).unwrap().clone();
+                if !modified_node.dependancies.contains(&start_node) {
+                    modified_node.dependancies.push(start_node);
+                };
+                self.tasks.insert(node.id, modified_node);
+                // Update dependancy list
+                let removed_change = DepChange {
+                    change: ChangeType::Remove,
+                    start: start_node,
+                    end: node.id,
+                };
+                if self.changed_deps.contains(&removed_change) {
+                    let dep_i = index_of_item(&removed_change, &self.changed_deps);
+                    if let Some(dep_index) = dep_i {
+                        self.changed_deps.swap_remove(dep_index);
+                    }
+                } else {
+                    self.changed_deps.push(DepChange {
+                        change: ChangeType::Add,
+                        start: start_node,
+                        end: node.id,
+                    })
+                }
+            }
+        }
+    }
+
+    pub fn delete_selected_line_if_selected(&mut self) {
+        if self.selected_line.is_some() {
+            self.delete_selected_line();
+        }
+    }
+    pub fn delete_selected_line(&mut self) {
+        let line_start = self.selected_line.unwrap().0;
+        let line_end = self.selected_line.unwrap().1;
+        let mut node = self
+            .tasks
+            .get(&self.selected_line.unwrap().0)
+            .unwrap()
+            .clone();
+        let i = index_of_item(&self.selected_line.unwrap().1, &node.dependancies).unwrap();
+        node.dependancies.swap_remove(i);
+        self.tasks.insert(node.id, node.clone());
+        self.selected_line = None;
+        self.redraw();
+
+        // update the dependancy change list
+        let change = DepChange {
+            change: ChangeType::Add,
+            start: i,
+            end: node.id,
+        };
+        if self.changed_deps.contains(&change) {
+            let dep_i = index_of_item(&change, &self.changed_deps);
+            if let Some(dep_index) = dep_i {
+                self.changed_deps.swap_remove(dep_index);
+            }
+        } else {
+            let delete = DepChange {
+                change: ChangeType::Remove,
+                start: line_start,
+                end: line_end,
+            };
+            self.changed_deps.push(delete);
+        }
     }
 }
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
