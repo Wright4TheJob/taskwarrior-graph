@@ -34,6 +34,7 @@ pub struct TwGraph {
     canvas_scale: f32,
     canvas_offset: Point<f32>,
     changed_deps: Vec<DepChange>,
+    line_threshhold_dist: f32,
 }
 
 impl Default for TwGraph {
@@ -52,6 +53,7 @@ impl Default for TwGraph {
             selected_line: None,
             canvas_offset: Point::default(),
             changed_deps: Vec::new(),
+            line_threshhold_dist: 9.0,
         }
     }
 }
@@ -193,8 +195,6 @@ impl TwGraph {
                     text_input("Tag filters", self.tag_filter.as_str())
                         .on_input(Message::TagFilterChanged)
                 ),
-                // text("Show only active"),
-                // checkbox(self.only_show_active),
                 button("View Commands"),
                 button("Save to TaskWarrior"),
             ),
@@ -223,33 +223,7 @@ impl TwGraph {
             }
             Message::MouseClicked => {
                 // Did the mouse click inside a box? -> potentially start a line
-                // If so, did the mouse then drag further than x pixels away from the start point?
-                // If so -> Start a link line
-                // If not -> Consider it a static click and mark the box as selected
-                let mut clicked_boxes = None;
-                let mut lines = Vec::new();
-                for (_, node) in self.filtered_tasks.clone() {
-                    if is_within_rect(&node, &self.canvas_mouse_position) {
-                        clicked_boxes = Some(node.id);
-                    }
-                    for dep in node.dependancies {
-                        lines.push((node.id, dep));
-                    }
-                }
-                if clicked_boxes.is_some() {
-                    self.line_start_node_id = clicked_boxes;
-                    self.line_start_point = self.canvas_mouse_position;
-                    self.user_status = UserStatus::Dragging;
-                }
-
-                let mut clicked_lines = Vec::new();
-                for (end_id, start_id) in lines {
-                    let start = self.tasks.get(&start_id).expect("Node not found").location;
-                    let end = self.tasks.get(&end_id).expect("Node not found").location;
-                    if dist_to_line_seg(&self.canvas_mouse_position, &start, &end) <= 4. {
-                        clicked_lines.push((end_id, start_id));
-                    }
-                }
+                self.start_line_maybe();
             }
             Message::MouseReleased => {
                 self.mouse_released();
@@ -270,7 +244,6 @@ impl TwGraph {
                 }
             }
         }
-        println!("{:#?}", self.changed_deps);
     }
 
     pub fn redraw(&mut self) {
@@ -285,7 +258,19 @@ impl TwGraph {
     pub fn line_started(&self) -> bool {
         self.line_start_node_id.is_some()
     }
-
+    pub fn start_line_maybe(&mut self) {
+        for (_, node) in self.filtered_tasks.clone() {
+            if is_within_rect(&node, &self.canvas_mouse_position) {
+                self.start_line(&node.id);
+                return;
+            }
+        }
+    }
+    pub fn start_line(&mut self, start_id: &usize) {
+        self.line_start_node_id = Some(*start_id);
+        self.line_start_point = self.canvas_mouse_position;
+        self.user_status = UserStatus::Dragging;
+    }
     pub fn mouse_released(&mut self) {
         let mut something_clicked = false;
         if self.line_started() {
@@ -310,7 +295,7 @@ impl TwGraph {
                         &node.location,
                         &dep_node.location,
                     );
-                    if dist < 9. {
+                    if dist < self.line_threshhold_dist {
                         // a line was clicked!
                         return Some((node.id, dep_node.id));
                     }
