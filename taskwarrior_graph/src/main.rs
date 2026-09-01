@@ -393,7 +393,7 @@ impl TwGraph {
     }
     pub fn execute_pending_changes(&mut self) {
         for change in self.changed_deps.clone() {
-            command_dep_change(&change);
+            let _ = command_dep_change(&change);
         }
         self.changed_deps.clear();
     }

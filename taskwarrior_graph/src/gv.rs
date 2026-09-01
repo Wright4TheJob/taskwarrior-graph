@@ -1,9 +1,9 @@
 use dot_generator::*;
 use dot_structures::*;
-use graphviz_rust::{attributes::shape::parallelogram, exec, printer::PrinterContext};
+use graphviz_rust::{exec, printer::PrinterContext};
 use iced_core::{Point, Size};
 use regex::Regex;
-use std::{collections::HashMap, fmt::Error};
+use std::collections::HashMap;
 
 use crate::tw::Task;
 

@@ -194,7 +194,7 @@ pub fn format_dep_change_command(change: &DepChange) -> String {
     }
 }
 
-pub fn command_dep_change(change: &DepChange) {
+pub fn command_dep_change(change: &DepChange) -> Result<(), &str> {
     // let command = Command::new(format_dep_change_command(change)).output();
     let mut binding = Command::new("task");
     let command = match change.change {
@@ -208,14 +208,16 @@ pub fn command_dep_change(change: &DepChange) {
             .arg(format!("dep:-{}", change.start)),
     };
     let output = command.output();
-    println!("{:?}", command);
     match output {
         Ok(text) => {
             let t = String::from_utf8_lossy(&text.stdout);
             let lines: Vec<_> = t.lines().collect();
-            println!("{:?}", lines);
+            if lines.last() == Some(&"Modified 1 task.") {
+                return Ok(());
+            } else {
+                return Err("Unexpected output on Taskwarrior save");
+            }
         }
-        Err(e) => println!("{}", e),
+        Err(_) => return Err("Error running Taskwarrior command"),
     };
-    println!("------");
 }
