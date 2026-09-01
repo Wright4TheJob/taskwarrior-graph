@@ -88,7 +88,8 @@ impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
         // app.tasks = tw_tasks();
-        app.tasks = graph(tw_tasks());
+        let tasks = tw_tasks();
+        app.tasks = graph(&tasks, tasks.clone());
         app.redraw();
         // println!("{:#?}", app.tasks.clone());
         // output_exec_from_test();
@@ -252,12 +253,12 @@ impl TwGraph {
     }
 
     pub fn redraw(&mut self) {
-        let mut tasks = self.tasks.clone();
-        tasks.retain(|_, t| t.project_contains(&self.project_filter));
+        let mut filtered_tasks = self.tasks.clone();
+        filtered_tasks.retain(|_, t| t.project_contains(&self.project_filter));
         // filter by tags next
-        tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
+        filtered_tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
         // todo: scale boxes and positions here, if necessary
-        let positioned_nodes = graph(tasks);
+        let positioned_nodes = graph(&self.tasks, filtered_tasks);
         let scaled_nodes = self.scale(positioned_nodes);
         self.filtered_tasks = scaled_nodes;
     }
