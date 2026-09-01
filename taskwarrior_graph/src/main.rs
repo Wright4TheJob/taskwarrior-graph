@@ -1,12 +1,12 @@
-use crate::tw::{Task, tw_tasks};
+use crate::tw::{Task, command_dep_change, tw_tasks};
 use iced::Size;
 use iced::keyboard::{Event::KeyPressed, Key, key::Named};
-use iced::mouse;
 use iced::widget::canvas;
 use iced::widget::canvas::{Text, stroke::Stroke};
 use iced::widget::{button, column, row, text, text_input};
 use iced::window::Event::Resized;
 use iced::{Color, Element, Rectangle, Renderer, Theme, application};
+use iced::{Length, mouse};
 use iced::{
     Point,
     event::{self, Event, Status},
@@ -15,10 +15,10 @@ use iced::{
 };
 use iced_core::SmolStr;
 use iced_core::text::Shaping;
-use index_of_item;
 use std::collections::HashMap;
-use taskwarrior_graph::gv::position;
+use taskwarrior_graph::gv::graph;
 use taskwarrior_graph::*;
+use {ChangeType, DepChange, index_of_item};
 
 pub struct TwGraph {
     tasks: HashMap<usize, Task>,
@@ -35,6 +35,9 @@ pub struct TwGraph {
     canvas_offset: Point<f32>,
     changed_deps: Vec<DepChange>,
     line_threshhold_dist: f32,
+    horiz_spacing: f32,
+    vert_spacing: f32,
+    controls_width: f32,
 }
 
 impl Default for TwGraph {
@@ -54,6 +57,9 @@ impl Default for TwGraph {
             canvas_offset: Point::default(),
             changed_deps: Vec::new(),
             line_threshhold_dist: 9.0,
+            horiz_spacing: 0.8,
+            vert_spacing: 1.0,
+            controls_width: 250.,
         }
     }
 }
@@ -77,24 +83,12 @@ enum UserStatus {
     Dragging,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum ChangeType {
-    Add,
-    Remove,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DepChange {
-    change: ChangeType,
-    start: usize,
-    end: usize,
-}
 // Main program handles state changes, user interactions, and all decision trees. Main program breaks down abstract or composite elements like "box with text in it" into the drawing primatives to be handled by the canvas widget.
 impl TwGraph {
     fn new() -> TwGraph {
         let mut app = TwGraph::default();
         // app.tasks = tw_tasks();
-        app.tasks = position(tw_tasks());
+        app.tasks = graph(tw_tasks());
         app.redraw();
         // println!("{:#?}", app.tasks.clone());
         // output_exec_from_test();
@@ -179,10 +173,17 @@ impl TwGraph {
             scale: self.canvas_scale,
             offset: self.canvas_offset,
         };
+        let mut pending_changes = match self.changed_deps.len() {
+            0 => String::new(),
+            _ => "Pending Changes:\n".to_string(),
+        };
+        for change in self.changed_deps.clone() {
+            pending_changes.push_str(format!("{}\n", change.to_string()).as_str());
+        }
 
-        column!(
-            row!(
-                column!(
+        row!(
+            column!(
+                row!(
                     text("Project"),
                     text_input::<Message, Theme, Renderer>(
                         "Project filters",
@@ -190,14 +191,15 @@ impl TwGraph {
                     )
                     .on_input(Message::ProjectFilterChanged)
                 ),
-                column!(
+                row!(
                     text("Tags"),
                     text_input("Tag filters", self.tag_filter.as_str())
                         .on_input(Message::TagFilterChanged)
                 ),
-                button("View Commands"),
-                button("Save to TaskWarrior"),
-            ),
+                button("Save to TaskWarrior").on_press(Message::ExecutePendingChanges),
+                text(pending_changes)
+            )
+            .width(Length::Fixed(self.controls_width)),
             canvas(this_canvas.clone())
         )
         .into()
@@ -214,7 +216,7 @@ impl TwGraph {
                 self.redraw();
             }
             Message::MouseMoved(position) => {
-                let menu_offset = Point::new(0.0, 40.0);
+                let menu_offset = Point::new(self.controls_width, 0.0);
                 let menu_offset_point = offset_point(position, menu_offset);
                 self.canvas_mouse_position = Point {
                     x: menu_offset_point.x * self.canvas_scale + self.canvas_offset.x,
@@ -243,6 +245,9 @@ impl TwGraph {
                     _ => (),
                 }
             }
+            Message::ExecutePendingChanges => {
+                self.execute_pending_changes();
+            }
         }
     }
 
@@ -252,8 +257,18 @@ impl TwGraph {
         // filter by tags next
         tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
         // todo: scale boxes and positions here, if necessary
-        let positioned_nodes = position(tasks);
-        self.filtered_tasks = positioned_nodes;
+        let positioned_nodes = graph(tasks);
+        let scaled_nodes = self.scale(positioned_nodes);
+        self.filtered_tasks = scaled_nodes;
+    }
+    pub fn scale(&self, nodes: HashMap<usize, Task>) -> HashMap<usize, Task> {
+        let mut new_nodes = HashMap::new();
+        for (id, mut node) in nodes.clone() {
+            node.location.x = node.location.x * self.horiz_spacing;
+            node.location.y = node.location.y * self.vert_spacing;
+            new_nodes.insert(id, node);
+        }
+        return new_nodes;
     }
     pub fn line_started(&self) -> bool {
         self.line_start_node_id.is_some()
@@ -358,8 +373,8 @@ impl TwGraph {
         // update the dependancy change list
         let change = DepChange {
             change: ChangeType::Add,
-            start: i,
-            end: node.id,
+            start: line_end,
+            end: line_start,
         };
         if self.changed_deps.contains(&change) {
             let dep_i = index_of_item(&change, &self.changed_deps);
@@ -369,11 +384,17 @@ impl TwGraph {
         } else {
             let delete = DepChange {
                 change: ChangeType::Remove,
-                start: line_start,
-                end: line_end,
+                start: line_end,
+                end: line_start,
             };
             self.changed_deps.push(delete);
         }
+    }
+    pub fn execute_pending_changes(&mut self) {
+        for change in self.changed_deps.clone() {
+            command_dep_change(&change);
+        }
+        self.changed_deps.clear();
     }
 }
 // Canvas is kept as dumb as possible, and simply includes drawn elements with conditionals based on user status but no business logic
@@ -405,6 +426,7 @@ enum Message {
     ProjectFilterChanged(String),
     TagFilterChanged(String),
     KeyPressed(Key<SmolStr>),
+    ExecutePendingChanges,
 }
 
 // Then, we implement the `Program` trait

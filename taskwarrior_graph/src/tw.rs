@@ -2,6 +2,8 @@ use iced::{Point, Size};
 use regex::Regex;
 use std::collections::HashMap;
 use std::process::Command;
+
+use crate::{ChangeType, DepChange};
 #[derive(Default, Debug, Clone)]
 pub struct Task {
     // uuid: String,
@@ -183,4 +185,37 @@ fn test_hashmap_project_filter() {
     let mut filtered2 = tasks.clone();
     filtered2.retain(|_, t| t.project_contains("s"));
     assert_eq!(filtered2.len(), 2);
+}
+
+pub fn format_dep_change_command(change: &DepChange) -> String {
+    match change.change {
+        ChangeType::Add => format!("task {} modify dep:{}", change.start, change.end),
+        ChangeType::Remove => format!("task {} modify dep:-{}", change.start, change.end),
+    }
+}
+
+pub fn command_dep_change(change: &DepChange) {
+    // let command = Command::new(format_dep_change_command(change)).output();
+    let mut binding = Command::new("task");
+    let command = match change.change {
+        ChangeType::Add => binding
+            .arg(format!("{}", change.end))
+            .arg("modify")
+            .arg(format!("dep:{}", change.start)),
+        ChangeType::Remove => binding
+            .arg(format!("{}", change.end))
+            .arg("modify")
+            .arg(format!("dep:-{}", change.start)),
+    };
+    let output = command.output();
+    println!("{:?}", command);
+    match output {
+        Ok(text) => {
+            let t = String::from_utf8_lossy(&text.stdout);
+            let lines: Vec<_> = t.lines().collect();
+            println!("{:?}", lines);
+        }
+        Err(e) => println!("{}", e),
+    };
+    println!("------");
 }

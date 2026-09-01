@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::tw::Task;
 
-pub fn position(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
+pub fn graph(tasks: HashMap<usize, Task>) -> HashMap<usize, Task> {
     let mut nodes = tasks.clone();
     let mut g = graph!(id!("id"));
     for (_, task) in tasks.clone() {
@@ -90,50 +90,16 @@ fn test_if_is_node() {
     assert!(is_node(&node));
     assert!(!is_node(&edge));
 }
-// fn parse_edge(e: &String) -> Option<EdgeGV> {
-//     let re = Regex::new(r"([0-9A-Za-z_]+) -- ([0-9A-Za-z_]+)\[pos=([0-9.]+),([0-9.]+) ([0-9.]+),([0-9.]+) ([0-9.]+),([0-9.]+) ([0-9.]+),([0-9.]+)").unwrap();
-//     let (_, [n1, n2, _, x, _, y, _, x2, _, y2]) = re.captures(e).unwrap().extract::<10>();
-//     let start_loc = Point {
-//         x: x.parse().unwrap(),
-//         y: y.parse().unwrap(),
-//     };
-//     let end_loc = Point {
-//         x: x2.parse().unwrap(),
-//         y: y2.parse().unwrap(),
-//     };
-//     let edge = EdgeGV {
-//         start_id: n1.parse().unwrap(),
-//         end_id: n2.parse().unwrap(),
-//         start_point: start_loc,
-//         end_point: end_loc,
-//     };
-//     Some(edge)
-// }
-// #[test]
-// fn parse_example_edge() {
-//     let e = "1 -- 2[pos=171.04,71.697 171.04,60.846 171.04,46.917 171.04,36.104]".to_string();
-//     let p1 = Point {
-//         x: 71.697,
-//         y: 60.846,
-//     };
-//     let edge = match parse_edge(&e) {
-//         Some(ed) => ed,
-//         None => EdgeGV {
-//             start_id: 0,
-//             end_id: 0,
-//             start_point: Point { x: 0., y: 0. },
-//             end_point: Point { x: 0., y: 0. },
-//         },
-//     };
-//     assert_eq!(edge.start_point, p1)
-// }
 
 fn parse_node(e: &String) -> Option<(usize, &str, Point, Size)> {
     // println!("{}", e);
     let regex_string =
         r#"([0-9A-Za-z_]+)\[height=([0-9.]+),label=(.+),pos=([0-9.]+),([0-9.]+),width=([0-9.]+)"#;
     let re = Regex::new(regex_string).unwrap();
-    let (_, [id_string, h, label, x, y, w]) = re.captures(e).unwrap().extract::<6>();
+    let (_, [id_string, h, label, x, y, w]) = re
+        .captures(e)
+        .expect(format!("Failed to parse node with string: {}", e).as_str())
+        .extract::<6>();
     let box_scale_factor = 50.;
     let position_scale_factor = 1.0 as f32;
     Some((

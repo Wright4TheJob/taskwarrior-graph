@@ -308,3 +308,30 @@ fn test_lerp_real_data_1() {
     };
     debug_assert_eq!(lerp_inv(&mouse, &p1, &p2), 1. - lerp_inv(&mouse, &p2, &p1));
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChangeType {
+    Add,
+    Remove,
+}
+impl std::fmt::Display for ChangeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChangeType::Add => write!(f, "add"),
+            ChangeType::Remove => write!(f, "remove"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DepChange {
+    pub change: ChangeType,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl std::fmt::Display for DepChange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.end, self.change, self.start)
+    }
+}
