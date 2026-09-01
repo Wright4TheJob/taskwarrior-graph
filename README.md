@@ -5,13 +5,13 @@ The program reads the task list from TaskWarrior with the filters selected, arra
 
 Feature list status:
 - [x] Read from TaskWarrior
-- [ ] Filter according to project
-- [ ] Filter according to tag
+- [x] Filter according to project
+- [x] Filter according to tag
 - [x] Send task data to graphviz
 - [x] Parse and render results from GraphViz
 - [x] Create new link by dragging and dropping
 - [ ] Select and delete link with a click and "delete" key
-- [ ] View pending TaskWarrior commands
-- [ ] Save actions to TaskWarrior
+- [x] View pending TaskWarrior commands
+- [x] Save actions to TaskWarrior
 - [ ] Pan canvas
 - [ ] Zoom canvas
