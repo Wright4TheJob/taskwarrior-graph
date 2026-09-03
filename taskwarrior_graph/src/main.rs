@@ -38,6 +38,8 @@ pub struct TwGraph {
     horiz_spacing: f32,
     vert_spacing: f32,
     controls_width: f32,
+    abs_mouse_position: Point<f32>,
+    last_mouse_position: Point<f32>,
 }
 
 impl Default for TwGraph {
@@ -60,6 +62,8 @@ impl Default for TwGraph {
             horiz_spacing: 0.8,
             vert_spacing: 1.0,
             controls_width: 250.,
+            abs_mouse_position: Point::default(),
+            last_mouse_position: Point::default(),
         }
     }
 }
@@ -76,11 +80,12 @@ pub struct Label {
     location: Point<f32>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 enum UserStatus {
     #[default]
     Default,
     Dragging,
+    Panning,
 }
 
 // Main program handles state changes, user interactions, and all decision trees. Main program breaks down abstract or composite elements like "box with text in it" into the drawing primatives to be handled by the canvas widget.
@@ -126,6 +131,7 @@ impl TwGraph {
                 start: self.line_start_point,
                 end: self.canvas_mouse_position,
             }),
+            UserStatus::Panning => None,
         };
         let mut outlines = Vec::new();
         let mut labels = Vec::new();
@@ -217,16 +223,28 @@ impl TwGraph {
                 self.redraw();
             }
             Message::MouseMoved(position) => {
+                self.abs_mouse_position = position;
                 let menu_offset = Point::new(self.controls_width, 0.0);
                 let menu_offset_point = offset_point(position, menu_offset);
+                if self.user_status == UserStatus::Panning {
+                    self.canvas_offset.x += self.abs_mouse_position.x - self.last_mouse_position.x;
+                    self.canvas_offset.y += self.abs_mouse_position.y - self.last_mouse_position.y;
+                }
                 self.canvas_mouse_position = Point {
-                    x: menu_offset_point.x * self.canvas_scale + self.canvas_offset.x,
-                    y: menu_offset_point.y * self.canvas_scale + self.canvas_offset.y,
+                    x: menu_offset_point.x * self.canvas_scale - self.canvas_offset.x,
+                    y: menu_offset_point.y * self.canvas_scale - self.canvas_offset.y,
                 };
+                self.last_mouse_position = self.abs_mouse_position;
             }
             Message::MouseClicked => {
                 // Did the mouse click inside a box? -> potentially start a line
-                self.start_line_maybe();
+                for (_, node) in self.filtered_tasks.clone() {
+                    if is_within_rect(&node, &self.canvas_mouse_position) {
+                        self.start_line(&node.id);
+                        return;
+                    }
+                }
+                self.start_panning();
             }
             Message::MouseReleased => {
                 self.mouse_released();
@@ -286,6 +304,10 @@ impl TwGraph {
         self.line_start_node_id = Some(*start_id);
         self.line_start_point = self.canvas_mouse_position;
         self.user_status = UserStatus::Dragging;
+    }
+    pub fn start_panning(&mut self) {
+        self.user_status = UserStatus::Panning;
+        self.last_mouse_position = self.abs_mouse_position;
     }
     pub fn mouse_released(&mut self) {
         let mut something_clicked = false;

@@ -13,5 +13,7 @@ Feature list status:
 - [ ] Select and delete link with a click and "delete" key
 - [x] View pending TaskWarrior commands
 - [x] Save actions to TaskWarrior
-- [ ] Pan canvas
+- [x] Pan canvas
 - [ ] Zoom canvas
+
+Currently depends on Graphviz separately installed. Binary will be bundled in the future.
