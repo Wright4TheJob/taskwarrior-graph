@@ -10,10 +10,13 @@ Feature list status:
 - [x] Send task data to graphviz
 - [x] Parse and render results from GraphViz
 - [x] Create new link by dragging and dropping
-- [ ] Select and delete link with a click and "delete" key
+- [x] Select and delete link with a click and "delete" key
 - [x] View pending TaskWarrior commands
 - [x] Save actions to TaskWarrior
 - [x] Pan canvas
 - [ ] Zoom canvas
+- [ ] Select tasks
+- [ ] Mark task as complete
+- [ ] Add new tasks
 
 Currently depends on Graphviz separately installed. Binary will be bundled in the future.
