@@ -63,7 +63,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
             dependancies: depends.get(i).unwrap().clone(),
             project: projects.get(i).unwrap().clone(),
             tags: tags
-                .get(&i)
+                .get(i)
                 .unwrap()
                 .split(" ")
                 .map(|s| s.to_string())
@@ -77,7 +77,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
 fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
     let command = Command::new("task")
         .arg("rc.hooks=off")
-        .arg(format!("rc.report.foo.columns:id,{}", column))
+        .arg(format!("rc.report.foo.columns:id,{column}"))
         .arg("rc.report.foo.sort=uuid")
         .arg("rc.report.foo.filter=status:Pending")
         .arg("foo")
@@ -95,7 +95,7 @@ fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
         let (id, val) = parse_line(line);
         match val {
             Some(v) => map.insert(id, v),
-            None => map.insert(id, "".to_string()),
+            None => map.insert(id, String::new()),
         };
     }
     map
@@ -107,11 +107,11 @@ fn parse_line(l: &str) -> (usize, Option<String>) {
     if let Some(capture) = re.captures(l) {
         let (_, [id_str, s]) = capture.extract::<2>();
         let id: usize = id_str.parse().unwrap();
-        return (id, Some(s.to_string()));
+        (id, Some(s.to_string()))
     } else if let Some(capture) = re_alt.captures(l) {
         let (_, [id_str]) = capture.extract::<1>();
         let id: usize = id_str.parse().unwrap();
-        return (id, None);
+        (id, None)
     } else {
         (0, None)
     }
@@ -136,9 +136,8 @@ fn parse_dep_string(dep_string: &str) -> Vec<usize> {
 
     let mut deps = Vec::new();
     for dep in deps_strings {
-        match dep.parse::<usize>() {
-            Ok(id) => deps.push(id),
-            Err(_) => {}
+        if let Ok(id) = dep.parse::<usize>() {
+            deps.push(id)
         }
     }
 
@@ -213,11 +212,11 @@ pub fn command_dep_change(change: &DepChange) -> Result<(), &str> {
             let t = String::from_utf8_lossy(&text.stdout);
             let lines: Vec<_> = t.lines().collect();
             if lines.last() == Some(&"Modified 1 task.") {
-                return Ok(());
+                Ok(())
             } else {
-                return Err("Unexpected output on Taskwarrior save");
+                Err("Unexpected output on Taskwarrior save")
             }
         }
-        Err(_) => return Err("Error running Taskwarrior command"),
-    };
+        Err(_) => Err("Error running Taskwarrior command"),
+    }
 }

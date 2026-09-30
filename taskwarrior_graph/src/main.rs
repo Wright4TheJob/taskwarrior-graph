@@ -329,9 +329,9 @@ impl TwGraph {
             for dep in node.dependancies {
                 if let Some(dep_node) = self.filtered_tasks.get(&dep) {
                     let dist = dist_to_line_seg(
-                        &self.canvas_mouse_position,
-                        &node.location,
-                        &dep_node.location,
+                        self.canvas_mouse_position,
+                        node.location,
+                        dep_node.location,
                     );
                     if dist < self.line_threshhold_dist {
                         // a line was clicked!
