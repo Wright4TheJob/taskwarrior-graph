@@ -33,23 +33,23 @@ impl Task {
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
-    let descriptions = query_tw_for_column(&"description");
-    let depends_str = query_tw_for_column(&"depends");
+    let descriptions = query_tw_for_column("description");
+    let depends_str = query_tw_for_column("depends");
     let depends: HashMap<usize, Vec<usize>> = depends_str
         .iter()
-        .map(|(id, s)| (id.clone(), parse_dep_string(s)))
+        .map(|(id, s)| (*id, parse_dep_string(s)))
         .collect();
     // let statuses = query_tw_for_column(&"status");
-    let projects = query_tw_for_column(&"project");
+    let projects = query_tw_for_column("project");
     // println!("{:?}", projects);
-    let ids_strings = query_tw_for_column(&"id");
+    let ids_strings = query_tw_for_column("id");
     let ids: Vec<&usize> = ids_strings.keys().collect();
-    let tags = query_tw_for_column(&"tags");
+    let tags = query_tw_for_column("tags");
     for i in ids {
         let desc = descriptions.get(i).unwrap().clone();
         let this_task = Task {
             // uuid: uuids[i].clone(),
-            id: i.clone(),
+            id: *i,
             size: Size {
                 height: 20.,
                 width: (5 * desc.len()) as f32,
@@ -71,7 +71,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
         };
         tasks.insert(this_task.id, this_task);
     }
-    return tasks;
+    tasks
 }
 
 fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
