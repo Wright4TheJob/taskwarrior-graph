@@ -17,9 +17,11 @@ pub struct Task {
 }
 
 impl Task {
+    #[must_use]
     pub fn project_contains(&self, s: &str) -> bool {
         self.project.contains(s)
     }
+    #[must_use]
     pub fn any_tag_contains(&self, s: &str) -> bool {
         let mut result = false;
         for tag in self.tags.clone() {
@@ -30,26 +32,27 @@ impl Task {
         result
     }
 }
+#[must_use]
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
-    let descriptions = query_tw_for_column(&"description");
-    let depends_str = query_tw_for_column(&"depends");
+    let descriptions = query_tw_for_column("description");
+    let depends_str = query_tw_for_column("depends");
     let depends: HashMap<usize, Vec<usize>> = depends_str
         .iter()
-        .map(|(id, s)| (id.clone(), parse_dep_string(s)))
+        .map(|(id, s)| (*id, parse_dep_string(s)))
         .collect();
     // let statuses = query_tw_for_column(&"status");
-    let projects = query_tw_for_column(&"project");
+    let projects = query_tw_for_column("project");
     // println!("{:?}", projects);
-    let ids_strings = query_tw_for_column(&"id");
+    let ids_strings = query_tw_for_column("id");
     let ids: Vec<&usize> = ids_strings.keys().collect();
-    let tags = query_tw_for_column(&"tags");
+    let tags = query_tw_for_column("tags");
     for i in ids {
-        let desc = descriptions.get(i).unwrap().clone();
+        let desc = descriptions.get(i).unwrap_or(&String::new()).clone();
         let this_task = Task {
             // uuid: uuids[i].clone(),
-            id: i.clone(),
+            id: *i,
             size: Size {
                 height: 20.,
                 width: (5 * desc.len()) as f32,
@@ -60,18 +63,18 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 y: (30 * i) as f32,
             },
             label: desc,
-            dependancies: depends.get(i).unwrap().clone(),
-            project: projects.get(i).unwrap().clone(),
+            dependancies: depends.get(i).unwrap_or(&Vec::new()).clone(),
+            project: projects.get(i).unwrap_or(&String::new()).clone(),
             tags: tags
                 .get(i)
                 .unwrap()
-                .split(" ")
-                .map(|s| s.to_string())
+                .split(' ')
+                .map(std::string::ToString::to_string)
                 .collect(),
         };
         tasks.insert(this_task.id, this_task);
     }
-    return tasks;
+    tasks
 }
 
 fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
@@ -104,17 +107,31 @@ fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
 fn parse_line(l: &str) -> (usize, Option<String>) {
     let re = Regex::new(r"([0-9]+) (.*)").unwrap();
     let re_alt = Regex::new(r"([0-9]+)").unwrap();
-    if let Some(capture) = re.captures(l) {
-        let (_, [id_str, s]) = capture.extract::<2>();
-        let id: usize = id_str.parse().unwrap();
-        (id, Some(s.to_string()))
-    } else if let Some(capture) = re_alt.captures(l) {
-        let (_, [id_str]) = capture.extract::<1>();
-        let id: usize = id_str.parse().unwrap();
-        (id, None)
-    } else {
-        (0, None)
-    }
+    re.captures(l).map_or_else(
+        || {
+            re_alt.captures(l).map_or((0, None), |capture| {
+                let (_, [id_str]) = capture.extract::<1>();
+                let id: usize = id_str.parse().unwrap_or_default();
+                (id, None)
+            })
+        },
+        |capture| {
+            let (_, [id_str, s]) = capture.extract::<2>();
+            let id: usize = id_str.parse().unwrap_or_default();
+            (id, Some(s.to_string()))
+        },
+    )
+    // if let Some(capture) = re.captures(l) {
+    //     let (_, [id_str, s]) = capture.extract::<2>();
+    //     let id: usize = id_str.parse().unwrap();
+    //     (id, Some(s.to_string()))
+    // } else if let Some(capture) = re_alt.captures(l) {
+    //     let (_, [id_str]) = capture.extract::<1>();
+    //     let id: usize = id_str.parse().unwrap_or_default();
+    //     (id, None)
+    // } else {
+    //     (0, None)
+    // }
 }
 #[test]
 fn test_parse_project_string() {
@@ -132,12 +149,15 @@ fn test_parse_dependancy_string() {
 }
 
 fn parse_dep_string(dep_string: &str) -> Vec<usize> {
-    let deps_strings: Vec<String> = dep_string.split(' ').map(|s| s.to_string()).collect();
+    let deps_strings: Vec<String> = dep_string
+        .split(' ')
+        .map(std::string::ToString::to_string)
+        .collect();
 
     let mut deps = Vec::new();
     for dep in deps_strings {
         if let Ok(id) = dep.parse::<usize>() {
-            deps.push(id)
+            deps.push(id);
         }
     }
 
@@ -185,7 +205,7 @@ fn test_hashmap_project_filter() {
     filtered2.retain(|_, t| t.project_contains("s"));
     assert_eq!(filtered2.len(), 2);
 }
-
+#[must_use]
 pub fn format_dep_change_command(change: &DepChange) -> String {
     match change.change {
         ChangeType::Add => format!("task {} modify dep:{}", change.start, change.end),

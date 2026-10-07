@@ -29,3 +29,7 @@ panic_in_result_fn = "deny"
 panic = "deny"
 exit = "deny"
 as_conversions = "deny"
+
+[package.metadata.bundle]
+name = "TaskWarrior Graph"
+identifier = "com.wright4thejob.taskwarrior_graph"
