@@ -5,13 +5,19 @@ use iced_core::{Point, Size};
 use regex::Regex;
 use std::collections::HashMap;
 
+use crate::GraphDirection;
 use crate::tw::Task;
 
 pub fn graph(
     all_nodes: &HashMap<usize, Task>,
     mut nodes: HashMap<usize, Task>,
+    dir: GraphDirection,
 ) -> HashMap<usize, Task> {
     let mut g = graph!(id!("id"));
+    match dir {
+        GraphDirection::TB => g.add_stmt(attr!("rankdir", "TB").into()),
+        GraphDirection::LR => g.add_stmt(attr!("rankdir", "LR").into()),
+    };
     for (_, task) in nodes.clone() {
         let node_id = format!("{}", task.id);
         let label_attr = format!("\"{}\"", task.label);
@@ -23,9 +29,18 @@ pub fn graph(
     }
     for (_, task) in nodes.clone() {
         for dependancy in &task.dependancies {
-            g.add_stmt(
-                edge!(node_id!(format!("{}",task.id))=> node_id!(format!("{}",dependancy))).into(),
-            );
+            // Inverting relationship dependancy order correctly clusters untethered nodes to the left
+            // While keeping overall flow L-R
+            match dir {
+                GraphDirection::TB => g.add_stmt(
+                    edge!(node_id!(format!("{}",task.id))=> node_id!(format!("{}",dependancy)))
+                        .into(),
+                ),
+                GraphDirection::LR => g.add_stmt(
+                    edge!(node_id!(format!("{}",dependancy))=> node_id!(format!("{}",task.id)))
+                        .into(),
+                ),
+            }
         }
     }
 

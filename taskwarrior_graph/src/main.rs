@@ -3,7 +3,7 @@ use iced::Size;
 use iced::keyboard::{Event::KeyPressed, Key, key::Named};
 use iced::widget::canvas;
 use iced::widget::canvas::{Text, stroke::Stroke};
-use iced::widget::{button, column, row, text, text_input};
+use iced::widget::{button, column, radio, row, rule, text, text_input};
 use iced::window::Event::Resized;
 use iced::{Color, Element, Rectangle, Renderer, Theme, application};
 use iced::{Length, mouse};
@@ -40,6 +40,7 @@ pub struct TwGraph {
     controls_width: f32,
     abs_mouse_position: Point<f32>,
     last_mouse_position: Point<f32>,
+    graph_dir: Option<GraphDirection>,
 }
 
 impl Default for TwGraph {
@@ -64,6 +65,7 @@ impl Default for TwGraph {
             controls_width: 250.,
             abs_mouse_position: Point::default(),
             last_mouse_position: Point::default(),
+            graph_dir: Some(GraphDirection::TB),
         }
     }
 }
@@ -94,7 +96,7 @@ impl TwGraph {
         let mut app = TwGraph::default();
         // app.tasks = tw_tasks();
         let tasks = tw_tasks();
-        app.tasks = graph(&tasks, tasks.clone());
+        app.tasks = graph(&tasks, tasks.clone(), app.graph_dir.unwrap_or_default());
         app.redraw();
         // println!("{:#?}", app.tasks.clone());
         // output_exec_from_test();
@@ -190,22 +192,40 @@ impl TwGraph {
 
         row!(
             column!(
-                row!(
-                    text("Project"),
-                    text_input::<Message, Theme, Renderer>(
-                        "Project filters",
-                        self.project_filter.as_str()
-                    )
-                    .on_input(Message::ProjectFilterChanged)
+                // row!(
+                text("Project").center().width(Length::Fill),
+                text_input::<Message, Theme, Renderer>(
+                    "Project filters",
+                    self.project_filter.as_str()
+                )
+                .on_input(Message::ProjectFilterChanged),
+                // ),
+                // row!(
+                text("Tags").center().width(Length::Fill),
+                text_input("Tag filters", self.tag_filter.as_str())
+                    .on_input(Message::TagFilterChanged),
+                // ),
+                text("Graph Direction").center().width(Length::Fill),
+                radio(
+                    GraphDirection::TB.to_string(),
+                    GraphDirection::TB,
+                    self.graph_dir,
+                    Message::GraphDirChanged
                 ),
-                row!(
-                    text("Tags"),
-                    text_input("Tag filters", self.tag_filter.as_str())
-                        .on_input(Message::TagFilterChanged)
+                radio(
+                    GraphDirection::LR.to_string(),
+                    GraphDirection::LR,
+                    self.graph_dir,
+                    Message::GraphDirChanged
                 ),
-                button("Save to TaskWarrior").on_press(Message::ExecutePendingChanges),
+                rule::horizontal(1),
+                button(text("Save to TaskWarrior").width(Length::Fill).center())
+                    .on_press(Message::ExecutePendingChanges)
+                    .width(Length::Fill),
                 text(pending_changes)
             )
+            .spacing(6.)
+            .padding(2.)
             .width(Length::Fixed(self.controls_width)),
             canvas(this_canvas.clone())
         )
@@ -267,6 +287,19 @@ impl TwGraph {
             Message::ExecutePendingChanges => {
                 self.execute_pending_changes();
             }
+            Message::GraphDirChanged(dir) => {
+                self.graph_dir = Some(dir);
+                match dir {
+                    GraphDirection::LR => {
+                        self.horiz_spacing = 0.65;
+                        self.vert_spacing = 1.0;
+                    }
+                    GraphDirection::TB => {
+                        self.horiz_spacing = 0.8;
+                        self.vert_spacing = 1.0;
+                    }
+                };
+            }
         }
     }
 
@@ -276,7 +309,11 @@ impl TwGraph {
         // filter by tags next
         filtered_tasks.retain(|_, t| t.any_tag_contains(&self.tag_filter));
         // todo: scale boxes and positions here, if necessary
-        let positioned_nodes = graph(&self.tasks, filtered_tasks);
+        let positioned_nodes = graph(
+            &self.tasks,
+            filtered_tasks,
+            self.graph_dir.unwrap_or_default(),
+        );
         let scaled_nodes = self.scale(positioned_nodes);
         self.filtered_tasks = scaled_nodes;
     }
@@ -450,6 +487,7 @@ enum Message {
     TagFilterChanged(String),
     KeyPressed(Key<SmolStr>),
     ExecutePendingChanges,
+    GraphDirChanged(GraphDirection),
 }
 
 // Then, we implement the `Program` trait
