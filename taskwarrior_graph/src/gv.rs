@@ -8,19 +8,28 @@ use std::collections::HashMap;
 use crate::GraphDirection;
 use crate::tw::Task;
 
-pub fn graph(
-    all_nodes: &HashMap<usize, Task>,
-    mut nodes: HashMap<usize, Task>,
+#[must_use]
+pub fn graph<S: ::std::hash::BuildHasher>(
+    all_nodes: &HashMap<usize, Task, S>,
+    mut nodes: HashMap<usize, Task, S>,
     dir: GraphDirection,
-) -> HashMap<usize, Task> {
+) -> HashMap<usize, Task, S>
+where
+    S: std::clone::Clone,
+{
     let mut g = graph!(id!("id"));
     match dir {
         GraphDirection::TB => g.add_stmt(attr!("rankdir", "TB").into()),
         GraphDirection::LR => g.add_stmt(attr!("rankdir", "LR").into()),
-    };
+    }
     for (_, task) in nodes.clone() {
         let node_id = format!("{}", task.id);
-        let label_attr = format!("\"{}\"", task.label);
+        let padding_n = task.id.to_string().len() + 1;
+        let mut padding = String::from("");
+        for _ in 0..padding_n {
+            padding.push(' ');
+        }
+        let label_attr = format!("\"{0}{1}\"", padding, task.label);
         g.add_stmt(
             node!(node_id.as_str();
                 attr!("label",label_attr.as_str()))
@@ -74,11 +83,7 @@ fn graph_parse_basic() {
 }
 
 fn graph_elements(g: &str) -> Vec<String> {
-    g.replace('\t', "")
-        .replace('\n', "")
-        .replace('\"', "")
-        .replace('{', "")
-        .replace('}', "")
+    g.replace(['\t', '\n', '\"', '{', '}'], "")
         .split_terminator(';')
         .map(std::string::ToString::to_string)
         .collect()
