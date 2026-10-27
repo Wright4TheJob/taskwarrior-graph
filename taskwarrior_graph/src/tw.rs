@@ -32,11 +32,7 @@ impl Task {
         result
     }
 }
-<<<<<<< HEAD
-#[must]
-=======
 #[must_use]
->>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
@@ -54,11 +50,7 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     let tags = query_tw_for_column("tags");
     let empty_string = String::new();
     for i in ids {
-<<<<<<< HEAD
         let desc = descriptions.get(i).unwrap_or(&empty_string).clone();
-=======
-        let desc = descriptions.get(i).unwrap_or(&String::new()).clone();
->>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
         let this_task = Task {
             // uuid: uuids[i].clone(),
             id: *i,
@@ -72,19 +64,11 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 y: (30 * i) as f32,
             },
             label: desc,
-<<<<<<< HEAD
-            dependancies: depends.get(i).unwrap_or(&vec![]).clone(),
-            project: projects.get(i).unwrap_or(&empty_string).clone(),
-            tags: tags
-                .get(i)
-                .unwrap_or(&empty_string)
-=======
             dependancies: depends.get(i).unwrap_or(&Vec::new()).clone(),
             project: projects.get(i).unwrap_or(&String::new()).clone(),
             tags: tags
                 .get(i)
                 .unwrap()
->>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
                 .split(' ')
                 .map(std::string::ToString::to_string)
                 .collect(),
