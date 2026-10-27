@@ -335,3 +335,19 @@ impl std::fmt::Display for DepChange {
         write!(f, "{} {} {}", self.end, self.change, self.start)
     }
 }
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
+pub enum GraphDirection {
+    #[default]
+    LR,
+    TB,
+}
+
+impl std::fmt::Display for GraphDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let name = match self {
+            Self::LR => "Left-Right",
+            Self::TB => "Top-Bottom",
+        };
+        write!(f, "{name}")
+    }
+}

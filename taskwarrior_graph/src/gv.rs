@@ -1,20 +1,35 @@
-use dot_generator::*;
-use dot_structures::*;
+use dot_generator::{attr, edge, graph, id, node, node_id};
+use dot_structures::{Attribute, Edge, EdgeTy, Graph, Id, Node, NodeId, Vertex};
 use graphviz_rust::{exec, printer::PrinterContext};
 use iced_core::{Point, Size};
 use regex::Regex;
 use std::collections::HashMap;
 
+use crate::GraphDirection;
 use crate::tw::Task;
 
-pub fn graph(
-    all_nodes: &HashMap<usize, Task>,
-    mut nodes: HashMap<usize, Task>,
-) -> HashMap<usize, Task> {
+#[must_use]
+pub fn graph<S: ::std::hash::BuildHasher>(
+    all_nodes: &HashMap<usize, Task, S>,
+    mut nodes: HashMap<usize, Task, S>,
+    dir: GraphDirection,
+) -> HashMap<usize, Task, S>
+where
+    S: std::clone::Clone,
+{
     let mut g = graph!(id!("id"));
+    match dir {
+        GraphDirection::TB => g.add_stmt(attr!("rankdir", "TB").into()),
+        GraphDirection::LR => g.add_stmt(attr!("rankdir", "LR").into()),
+    }
     for (_, task) in nodes.clone() {
         let node_id = format!("{}", task.id);
-        let label_attr = format!("\"{}\"", task.label);
+        let padding_n = task.id.to_string().len() + 1;
+        let mut padding = String::from("");
+        for _ in 0..padding_n {
+            padding.push(' ');
+        }
+        let label_attr = format!("\"{0}{1}\"", padding, task.label);
         g.add_stmt(
             node!(node_id.as_str();
                 attr!("label",label_attr.as_str()))
@@ -23,9 +38,18 @@ pub fn graph(
     }
     for (_, task) in nodes.clone() {
         for dependancy in &task.dependancies {
-            g.add_stmt(
-                edge!(node_id!(format!("{}",task.id))=> node_id!(format!("{}",dependancy))).into(),
-            );
+            // Inverting relationship dependancy order correctly clusters untethered nodes to the left
+            // While keeping overall flow L-R
+            match dir {
+                GraphDirection::TB => g.add_stmt(
+                    edge!(node_id!(format!("{}",task.id))=> node_id!(format!("{}",dependancy)))
+                        .into(),
+                ),
+                GraphDirection::LR => g.add_stmt(
+                    edge!(node_id!(format!("{}",dependancy))=> node_id!(format!("{}",task.id)))
+                        .into(),
+                ),
+            }
         }
     }
 
@@ -59,17 +83,13 @@ fn graph_parse_basic() {
 }
 
 fn graph_elements(g: &str) -> Vec<String> {
-    g.replace("\t", "")
-        .replace("\n", "")
-        .replace("\"", "")
-        .replace("{", "")
-        .replace("}", "")
-        .split_terminator(";")
-        .map(|e| e.to_string())
+    g.replace(['\t', '\n', '\"', '{', '}'], "")
+        .split_terminator(';')
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
-fn is_node(element: &String) -> bool {
+fn is_node(element: &str) -> bool {
     let re = Regex::new(r"([0-9A-Za-z_]+) -- ([0-9A-Za-z_]+)").unwrap();
     !re.is_match(element)
 }
@@ -82,7 +102,7 @@ fn test_if_is_node() {
     assert!(!is_node(&edge));
 }
 
-fn parse_labeled_node(e: &String) -> Result<(usize, &str, Point, Size), &str> {
+fn parse_labeled_node(e: &str) -> Result<(usize, &str, Point, Size), &str> {
     // println!("{}", e);
     let regex_string =
         r#"([0-9A-Za-z_]+)\[height=([0-9.]+),label=(.+),pos=([0-9.]+),([0-9.]+),width=([0-9.]+)"#;
@@ -92,24 +112,22 @@ fn parse_labeled_node(e: &String) -> Result<(usize, &str, Point, Size), &str> {
         Some(p) => {
             let (_, [id_string, h, label, x, y, w]) = p.extract::<6>();
             let box_scale_factor = 50.;
-            let position_scale_factor = 1.0 as f32;
-            return Ok((
+            let position_scale_factor = 1.0;
+            Ok((
                 id_string.parse().unwrap(),
                 label,
                 Point {
-                    x: x.parse::<f32>().unwrap() * position_scale_factor,
-                    y: y.parse::<f32>().unwrap() * position_scale_factor,
+                    x: x.parse::<f32>().unwrap_or(0.) * position_scale_factor,
+                    y: y.parse::<f32>().unwrap_or(0.) * position_scale_factor,
                 },
                 Size {
-                    width: w.parse::<f32>().unwrap() * box_scale_factor,
-                    height: h.parse::<f32>().unwrap() * box_scale_factor,
+                    width: w.parse::<f32>().unwrap_or(50.) * box_scale_factor,
+                    height: h.parse::<f32>().unwrap_or(50.) * box_scale_factor,
                 },
-            ));
+            ))
         }
-        None => {
-            return Err("parse_labeled_node: no match on node");
-        }
-    };
+        None => Err("parse_labeled_node: no match on node"),
+    }
 }
 #[test]
 fn parse_example_node() {
@@ -122,30 +140,28 @@ fn parse_example_node() {
     assert_eq!(node_loc, p1)
 }
 
-fn parse_unlabeled_node(e: &String) -> Result<(usize, Point, Size), &str> {
+fn parse_unlabeled_node(node_string: &str) -> Result<(usize, Point, Size), &str> {
     // println!("{}", e);
-    let regex_string = r#"([0-9]+)\[height=([0-9.]+),pos=([0-9.]+),([0-9.]+),width=([0-9.]+)"#;
+    let regex_string = r"([0-9]+)\[height=([0-9.]+),pos=([0-9.]+),([0-9.]+),width=([0-9.]+)";
     let re = Regex::new(regex_string).unwrap();
-    let parse = re.captures(e);
+    let parse = re.captures(node_string);
     match parse {
         Some(p) => {
             let (_, [id_string, h, x, y, w]) = p.extract::<5>();
             let box_scale_factor = 50.;
-            let position_scale_factor = 1.0 as f32;
-            return Ok((
+            let position_scale_factor = 1.;
+            Ok((
                 id_string.parse().unwrap(),
                 Point {
-                    x: x.parse::<f32>().unwrap() * position_scale_factor,
-                    y: y.parse::<f32>().unwrap() * position_scale_factor,
+                    x: x.parse::<f32>().unwrap_or(0.) * position_scale_factor,
+                    y: y.parse::<f32>().unwrap_or(0.) * position_scale_factor,
                 },
                 Size {
-                    width: w.parse::<f32>().unwrap() * box_scale_factor,
-                    height: h.parse::<f32>().unwrap() * box_scale_factor,
+                    width: w.parse::<f32>().unwrap_or(50.) * box_scale_factor,
+                    height: h.parse::<f32>().unwrap_or(50.) * box_scale_factor,
                 },
-            ));
+            ))
         }
-        None => {
-            return Err("parse_labeled_node: no match on node");
-        }
-    };
+        None => Err("parse_labeled_node: no match on node"),
+    }
 }

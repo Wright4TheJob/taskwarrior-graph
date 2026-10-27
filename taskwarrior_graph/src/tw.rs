@@ -17,9 +17,11 @@ pub struct Task {
 }
 
 impl Task {
+    #[must_use]
     pub fn project_contains(&self, s: &str) -> bool {
         self.project.contains(s)
     }
+    #[must_use]
     pub fn any_tag_contains(&self, s: &str) -> bool {
         let mut result = false;
         for tag in self.tags.clone() {
@@ -30,7 +32,11 @@ impl Task {
         result
     }
 }
+<<<<<<< HEAD
 #[must]
+=======
+#[must_use]
+>>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
@@ -48,7 +54,11 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     let tags = query_tw_for_column("tags");
     let empty_string = String::new();
     for i in ids {
+<<<<<<< HEAD
         let desc = descriptions.get(i).unwrap_or(&empty_string).clone();
+=======
+        let desc = descriptions.get(i).unwrap_or(&String::new()).clone();
+>>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
         let this_task = Task {
             // uuid: uuids[i].clone(),
             id: *i,
@@ -62,11 +72,19 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 y: (30 * i) as f32,
             },
             label: desc,
+<<<<<<< HEAD
             dependancies: depends.get(i).unwrap_or(&vec![]).clone(),
             project: projects.get(i).unwrap_or(&empty_string).clone(),
             tags: tags
                 .get(i)
                 .unwrap_or(&empty_string)
+=======
+            dependancies: depends.get(i).unwrap_or(&Vec::new()).clone(),
+            project: projects.get(i).unwrap_or(&String::new()).clone(),
+            tags: tags
+                .get(i)
+                .unwrap()
+>>>>>>> f0da02d9b92723cbdcd964b8ccb6716e10e89095
                 .split(' ')
                 .map(std::string::ToString::to_string)
                 .collect(),
@@ -106,17 +124,31 @@ fn query_tw_for_column(column: &str) -> HashMap<usize, String> {
 fn parse_line(l: &str) -> (usize, Option<String>) {
     let re = Regex::new(r"([0-9]+) (.*)").unwrap();
     let re_alt = Regex::new(r"([0-9]+)").unwrap();
-    if let Some(capture) = re.captures(l) {
-        let (_, [id_str, s]) = capture.extract::<2>();
-        let id: usize = id_str.parse().unwrap();
-        (id, Some(s.to_string()))
-    } else if let Some(capture) = re_alt.captures(l) {
-        let (_, [id_str]) = capture.extract::<1>();
-        let id: usize = id_str.parse().unwrap();
-        (id, None)
-    } else {
-        (0, None)
-    }
+    re.captures(l).map_or_else(
+        || {
+            re_alt.captures(l).map_or((0, None), |capture| {
+                let (_, [id_str]) = capture.extract::<1>();
+                let id: usize = id_str.parse().unwrap_or_default();
+                (id, None)
+            })
+        },
+        |capture| {
+            let (_, [id_str, s]) = capture.extract::<2>();
+            let id: usize = id_str.parse().unwrap_or_default();
+            (id, Some(s.to_string()))
+        },
+    )
+    // if let Some(capture) = re.captures(l) {
+    //     let (_, [id_str, s]) = capture.extract::<2>();
+    //     let id: usize = id_str.parse().unwrap();
+    //     (id, Some(s.to_string()))
+    // } else if let Some(capture) = re_alt.captures(l) {
+    //     let (_, [id_str]) = capture.extract::<1>();
+    //     let id: usize = id_str.parse().unwrap_or_default();
+    //     (id, None)
+    // } else {
+    //     (0, None)
+    // }
 }
 #[test]
 fn test_parse_project_string() {
