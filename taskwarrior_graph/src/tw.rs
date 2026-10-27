@@ -30,6 +30,7 @@ impl Task {
         result
     }
 }
+#[must]
 pub fn tw_tasks() -> HashMap<usize, Task> {
     let mut tasks = HashMap::new();
     // let uuids = query_tw_for_column(&"uuid.short");
@@ -45,8 +46,9 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     let ids_strings = query_tw_for_column("id");
     let ids: Vec<&usize> = ids_strings.keys().collect();
     let tags = query_tw_for_column("tags");
+    let empty_string = String::new();
     for i in ids {
-        let desc = descriptions.get(i).unwrap().clone();
+        let desc = descriptions.get(i).unwrap_or(&empty_string).clone();
         let this_task = Task {
             // uuid: uuids[i].clone(),
             id: *i,
@@ -60,13 +62,13 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
                 y: (30 * i) as f32,
             },
             label: desc,
-            dependancies: depends.get(i).unwrap().clone(),
-            project: projects.get(i).unwrap().clone(),
+            dependancies: depends.get(i).unwrap_or(&vec![]).clone(),
+            project: projects.get(i).unwrap_or(&empty_string).clone(),
             tags: tags
                 .get(i)
-                .unwrap()
-                .split(" ")
-                .map(|s| s.to_string())
+                .unwrap_or(&empty_string)
+                .split(' ')
+                .map(std::string::ToString::to_string)
                 .collect(),
         };
         tasks.insert(this_task.id, this_task);
@@ -132,12 +134,15 @@ fn test_parse_dependancy_string() {
 }
 
 fn parse_dep_string(dep_string: &str) -> Vec<usize> {
-    let deps_strings: Vec<String> = dep_string.split(' ').map(|s| s.to_string()).collect();
+    let deps_strings: Vec<String> = dep_string
+        .split(' ')
+        .map(std::string::ToString::to_string)
+        .collect();
 
     let mut deps = Vec::new();
     for dep in deps_strings {
         if let Ok(id) = dep.parse::<usize>() {
-            deps.push(id)
+            deps.push(id);
         }
     }
 
@@ -185,7 +190,7 @@ fn test_hashmap_project_filter() {
     filtered2.retain(|_, t| t.project_contains("s"));
     assert_eq!(filtered2.len(), 2);
 }
-
+#[must_use]
 pub fn format_dep_change_command(change: &DepChange) -> String {
     match change.change {
         ChangeType::Add => format!("task {} modify dep:{}", change.start, change.end),
