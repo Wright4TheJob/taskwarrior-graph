@@ -39,6 +39,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - run: "cargo install cargo-bundle"
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
