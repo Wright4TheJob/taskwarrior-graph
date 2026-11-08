@@ -45,6 +45,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
+          working-directory: "taskwarrior_graph"
       - name: Publish artifacts and release
         uses: houseabsolute/actions-rust-release@v0
         with:
