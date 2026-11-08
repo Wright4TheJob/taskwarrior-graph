@@ -48,8 +48,9 @@ pub fn tw_tasks() -> HashMap<usize, Task> {
     let ids_strings = query_tw_for_column("id");
     let ids: Vec<&usize> = ids_strings.keys().collect();
     let tags = query_tw_for_column("tags");
+    let empty_string = String::new();
     for i in ids {
-        let desc = descriptions.get(i).unwrap_or(&String::new()).clone();
+        let desc = descriptions.get(i).unwrap_or(&empty_string).clone();
         let this_task = Task {
             // uuid: uuids[i].clone(),
             id: *i,
