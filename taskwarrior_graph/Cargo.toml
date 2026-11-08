@@ -1,13 +1,13 @@
 [package]
 name = "taskwarrior-graph"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 
 [dependencies]
 
 iced= { version = "0.14", features = ["canvas"] }
 iced_core = "0.14"
-graphviz-rust = "0.9.8"
+graphviz-rust = "0.9.9"
 dot-generator = "0.2.0"
 dot-structures = "0.1.2"
 regex = "1.12.4"
