@@ -46,7 +46,7 @@ jobs:
         with:
           command: bundle
           target: ${{ matrix.platform.target }}
-          args: "--locked --release"
+          args: "--release"
           strip: true
           working-directory: "taskwarrior_graph"
       - name: Publish artifacts and release
