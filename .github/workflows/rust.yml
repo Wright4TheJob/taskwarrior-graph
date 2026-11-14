@@ -39,13 +39,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - run: "cargo install cargo-bundle"
+      - name: install cargo-bundle
+        run: cargo install --locked cargo-bundle
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: bundle
           target: ${{ matrix.platform.target }}
-          args: "--locked --release"
+          args: "--release"
           strip: true
           working-directory: "taskwarrior_graph"
       - name: Publish artifacts and release
